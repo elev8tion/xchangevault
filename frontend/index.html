@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XchangeVault</title>
+  <style>
+    /* ── TOKENS ─────────────────────────────────────────── */
+    :root {
+      --bg:            #07090f;
+      --surface:       #0c1120;
+      --surface-2:     #101829;
+      --surface-3:     #152035;
+      --border:        #182035;
+      --border-hi:     #1e3460;
+      --primary:       #3b82f6;
+      --primary-dim:   #1d4ed8;
+      --primary-glow:  rgba(59,130,246,.15);
+      --primary-text:  #93c5fd;
+      --success:       #10b981;
+      --success-glow:  rgba(16,185,129,.15);
+      --warning:       #f59e0b;
+      --danger:        #ef4444;
+      --danger-glow:   rgba(239,68,68,.15);
+      --text:          #f1f5f9;
+      --text-2:        #94a3b8;
+      --text-muted:    #3d5170;
+      --mono: 'JetBrains Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+      --r: 10px; --r-sm: 6px; --r-lg: 14px;
+      --ease: 170ms ease;
+    }
+
+    /* ── RESET ──────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+      margin: 0; background: var(--bg); color: var(--text);
+      font-size: 14px; line-height: 1.55;
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--primary-dim); }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    header {
+      padding: 14px 24px 10px;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+      background: rgba(7,9,15,.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      z-index: 100;
+    }
+    .header-top { display: flex; align-items: center; justify-content: space-between; }
+    .brand-wrap { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: linear-gradient(135deg,#1d4ed8,#7c3aed);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+      box-shadow: 0 2px 12px rgba(59,130,246,.35);
+    }
+    h1 {
+      margin: 0;
+      font-size: 16px; font-weight: 700; letter-spacing: -.3px;
+      background: linear-gradient(130deg,#60a5fa 0%,#a78bfa 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-sub { font-size: 11.5px; color: var(--text-muted); }
+    .header-actions { display: flex; gap: 8px; }
+
+    /* ── STEP PROGRESS ──────────────────────────────────── */
+    .steps { display: flex; align-items: center; margin: 10px 0 0; gap: 0; }
+    .step-pill {
+      display: flex; align-items: center; gap: 5px;
+      padding: 4px 11px; border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted); font-size: 11.5px; font-weight: 500;
+      transition: all var(--ease); white-space: nowrap;
+    }
+    .step-pill.active {
+      background: var(--primary-glow);
+      border-color: var(--primary);
+      color: var(--primary-text);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+    .step-pill.done {
+      border-color: var(--border-hi);
+      color: var(--text-2);
+    }
+    .step-connector { flex: 1; max-width: 20px; height: 1px; background: var(--border); }
+
+    /* ── MAIN ───────────────────────────────────────────── */
+    main { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ── STATUS ─────────────────────────────────────────── */
+    #status {
+      min-height: 30px; margin-bottom: 10px;
+      font-size: 13px; color: var(--text-2);
+      display: flex; align-items: center; gap: 8px;
+      transition: opacity var(--ease);
+    }
+    #status:empty { opacity: 0; pointer-events: none; }
+    #status.busy::before {
+      content: '';
+      flex-shrink: 0;
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--border-hi);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .65s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── CARDS ──────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 18px;
+      margin-bottom: 14px;
+      transition: border-color var(--ease);
+    }
+    .card:last-child { margin-bottom: 0; }
+    .card-label {
+      font-size: 11px; font-weight: 600; letter-spacing: .6px;
+      text-transform: uppercase; color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    /* ── STEPS ──────────────────────────────────────────── */
+    .step { display: none; }
+    .step.active { display: block; animation: fadeUp 220ms ease forwards; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── HEADINGS ───────────────────────────────────────── */
+    h3 { margin: 0 0 16px; font-size: 15px; font-weight: 700; }
+    h4 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .4px; }
+
+    /* ── BUTTONS ────────────────────────────────────────── */
+    button {
+      background: var(--primary); color: #fff;
+      border: none; border-radius: var(--r-sm);
+      padding: 8px 14px; font-weight: 600; font-size: 13px;
+      cursor: pointer; white-space: nowrap;
+      transition: background var(--ease), box-shadow var(--ease), transform var(--ease);
+    }
+    button:hover:not([disabled]) {
+      background: #4f93f8;
+      box-shadow: 0 4px 16px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+    button:active:not([disabled]) { transform: translateY(0); box-shadow: none; }
+    button[disabled] { opacity: .4; cursor: not-allowed; }
+
+    /* Secondary */
+    .btn-sec {
+      background: var(--surface-2);
+      border: 1px solid var(--border-hi);
+      color: var(--text-2);
+    }
+    .btn-sec:hover:not([disabled]) {
+      background: var(--surface-3);
+      border-color: var(--primary);
+      color: var(--primary-text);
+      box-shadow: none;
+    }
+    /* Ghost / close */
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 5px 10px;
+    }
+    .btn-ghost:hover:not([disabled]) {
+      border-color: var(--danger); color: var(--danger);
+      background: var(--danger-glow); box-shadow: none;
+    }
+    /* Danger */
+    .btn-danger {
+      background: #7f1d1d !important;
+      border: 1px solid #991b1b;
+    }
+    .btn-danger:hover:not([disabled]) {
+      background: var(--danger) !important;
+      box-shadow: 0 4px 16px var(--danger-glow) !important;
+    }
+
+    /* ── INPUTS ─────────────────────────────────────────── */
+    input[type=text], input[type=url], input[type=password], textarea, select {
+      width: 100%; padding: 9px 12px;
+      border-radius: var(--r-sm); border: 1px solid var(--border);
+      background: var(--surface-2); color: var(--text); font-size: 13px;
+      transition: border-color var(--ease), box-shadow var(--ease);
+      outline: none; font-family: inherit;
+    }
+    input[type=text]:focus, input[type=url]:focus,
+    input[type=password]:focus, textarea:focus, select:focus {
+      border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    ::placeholder { color: var(--text-muted); }
+    input[type=checkbox] { transform: scale(1.2); accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+    select { cursor: pointer; }
+    label {
+      display: block; font-size: 12px; font-weight: 500;
+      color: var(--text-2); margin-bottom: 5px;
+    }
+    textarea { resize: vertical; }
+
+    /* ── FORM FIELD ─────────────────────────────────────── */
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+
+    /* ── LAYOUT ─────────────────────────────────────────── */
+    .row { display: flex; gap: 10px; align-items: center; }
+    .row > * { flex: 1; min-width: 0; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .footer {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 16px; flex-wrap: wrap; gap: 8px;
+    }
+    .footer > div { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    /* ── TREE ───────────────────────────────────────────── */
+    .tree {
+      max-height: 360px; overflow: auto;
+      border: 1px solid var(--border); border-radius: var(--r);
+      padding: 8px; background: var(--surface-2);
+    }
+    .tree ul { list-style: none; padding-left: 16px; margin: 0; }
+    .tree ul.tree-root { padding-left: 0; }
+    .tree li { margin: 1px 0; }
+    .tree li label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 7px; border-radius: var(--r-sm);
+      cursor: pointer; transition: background var(--ease);
+      font-size: 13px; color: var(--text); margin: 0; font-weight: normal;
+    }
+    .tree li label:hover { background: var(--surface-3); }
+    .tree-actions { display: flex; gap: 6px; margin-bottom: 8px; }
+    .tree-actions button {
+      padding: 5px 10px; font-size: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-hi);
+      color: var(--text-2);
+    }
+    .tree-actions button:hover:not([disabled]) {
+      background: var(--surface-3); color: var(--primary-text);
+      border-color: var(--primary); box-shadow: none; transform: none;
+    }
+
+    /* ── TYPOGRAPHY HELPERS ─────────────────────────────── */
+    .muted   { color: var(--text-muted); font-size: 13px; }
+    .help    { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+    .warn    { color: var(--warning); font-size: 13px; }
+    .danger  { color: var(--danger);  font-size: 13px; }
+    .success { color: var(--success); font-size: 14px; font-weight: 600; }
+
+    /* ── BADGES / PILLS ─────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      font-size: 11px; font-weight: 600; padding: 2px 8px;
+      background: rgba(30,52,96,.55); border: 1px solid var(--border-hi);
+      border-radius: 999px; color: var(--primary-text); letter-spacing: .2px;
+    }
+    .pill {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 999px; background: var(--surface-2);
+      border: 1px solid var(--border); font-size: 12px; color: var(--text-2);
+    }
+
+    /* ── CHIPS ──────────────────────────────────────────── */
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .chip {
+      padding: 4px 12px; border-radius: 999px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      color: var(--text-2); font-size: 12px; cursor: pointer;
+      transition: all var(--ease);
+    }
+    .chip:hover { border-color: var(--primary); color: var(--primary-text); background: var(--primary-glow); }
+
+    /* ── SEARCH ─────────────────────────────────────────── */
+    .search { display: flex; gap: 8px; margin-bottom: 10px; }
+
+    /* ── LOG ────────────────────────────────────────────── */
+    .log {
+      white-space: pre-wrap; background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 12px 14px; border-radius: var(--r);
+      max-height: 240px; overflow: auto;
+      font-family: var(--mono); font-size: 11.5px;
+      color: #7e99bb; line-height: 1.65;
+    }
+    pre.log { margin: 0; }
+
+    /* ── DETAILS ────────────────────────────────────────── */
+    details { margin-bottom: 4px; }
+    details > summary {
+      cursor: pointer; color: var(--primary-text);
+      padding: 6px 10px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--r-sm); font-size: 12.5px;
+      user-select: none; transition: background var(--ease);
+      list-style: none;
+    }
+    details > summary::before { content: '▶ '; font-size: 10px; opacity: .6; }
+    details[open] > summary::before { content: '▼ '; }
+    details > summary:hover { background: var(--surface-3); }
+    details[open] > summary { border-radius: var(--r-sm) var(--r-sm) 0 0; }
+    details[open] > pre.log { border-radius: 0 0 var(--r-sm) var(--r-sm); border-top: none; }
+
+    /* ── AI TAG ─────────────────────────────────────────── */
+    .ai-tag {
+      display: inline-block; margin-left: 6px;
+      padding: 1px 7px; border-radius: 999px;
+      background: rgba(43,58,30,.8); color: #c3e88d;
+      font-size: 10px; font-weight: 700;
+      border: 1px solid #3a5a26; vertical-align: middle;
+    }
+
+    /* ── AI MODAL ───────────────────────────────────────── */
+    #ai-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+    }
+    #ai-modal .panel {
+      width: 720px; max-width: calc(100% - 40px);
+      background: var(--surface); border: 1px solid var(--border-hi);
+      border-radius: var(--r-lg); padding: 22px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.7);
+      animation: fadeUp 200ms ease;
+    }
+    #ai-modal .list {
+      max-height: 260px; overflow: auto;
+      border: 1px solid var(--border); border-radius: var(--r);
+      padding: 8px; background: var(--surface-2);
+    }
+    #ai-modal .list label {
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 7px; border-radius: var(--r-sm);
+      cursor: pointer; color: var(--text);
+      font-weight: normal; font-size: 13px;
+      margin: 0; transition: background var(--ease);
+    }
+    #ai-modal .list label:hover { background: var(--surface-3); }
+
+    /* ── ASSISTANT SIDEBAR ──────────────────────────────── */
+    #assistant {
+      width: 360px; border-left: 1px solid var(--border);
+      background: var(--surface);
+      position: fixed; right: 0; top: 0; bottom: 0;
+      z-index: 1000; box-shadow: -8px 0 32px rgba(0,0,0,.5);
+      flex-direction: column;
+    }
+    #assistant-messages { display: flex; flex-direction: column; gap: 8px; }
+    #assistant-messages > div {
+      padding: 9px 13px; border-radius: var(--r);
+      font-size: 13px; line-height: 1.5; max-width: 92%;
+    }
+    #assistant-messages > div:nth-child(odd) {
+      background: var(--surface-2); border: 1px solid var(--border);
+      align-self: flex-end; border-bottom-right-radius: 3px;
+    }
+    #assistant-messages > div:nth-child(even) {
+      background: var(--primary-glow); border: 1px solid var(--border-hi);
+      align-self: flex-start; border-bottom-left-radius: 3px;
+    }
+
+    /* ── PLAN SUMMARY ───────────────────────────────────── */
+    .plan-items { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 8px; }
+    .plan-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--r); font-size: 13px;
+    }
+
+    /* ── SUCCESS STEP ───────────────────────────────────── */
+    .success-hero {
+      display: flex; flex-direction: column; align-items: center;
+      text-align: center; padding: 32px 20px; gap: 14px;
+    }
+    .success-ring {
+      width: 68px; height: 68px; border-radius: 50%;
+      background: var(--success-glow); border: 2px solid var(--success);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; animation: popIn .4s cubic-bezier(.34,1.56,.64,1) forwards;
+    }
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    /* ── DIVIDER ────────────────────────────────────────── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+    /* ── RESPONSIVE ─────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .cols { grid-template-columns: 1fr; }
+      .steps { display: none; }
+    }
+  </style>
+
+  <!-- AI suggestions quick-accept modal -->
+  <div id="ai-modal">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-weight:700;font-size:15px">✨ AI Suggestions</div>
+        <button class="btn-ghost" onclick="hideAIModal()">✕</button>
+      </div>
+      <div class="help" style="margin-bottom:12px">Review and accept the items you want to apply.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="card-label">Name replacements</div>
+          <div id="ai-map-list" class="list"></div>
+        </div>
+        <div>
+          <div class="card-label">Patterns</div>
+          <div id="ai-pat-list" class="list"></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:16px">
+        <label class="help" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ai-fix-py"/> Enable Python import fixes</label>
+        <label class="help" style="display:flex;gap:6px;align-items:center;margin:0"><input type="checkbox" id="ai-fix-js"/> Enable JS/TS import fixes</label>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button onclick="applyAIModal()">Accept selected</button>
+        <button class="btn-sec" onclick="hideAIModal()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let scanResult = null;
+    let selectedPaths = new Set();
+    let currentStep = 1;
+    let tools = { comby:false, ast_grep:false };
+
+    function $(id){ return document.getElementById(id); }
+    function setStatus(msg){
+      const el = $("status");
+      el.textContent = msg || "";
+      const busy = !!msg && /\.\.\.|ing\b/i.test(msg) && !msg.startsWith('✔');
+      el.classList.toggle('busy', busy);
+    }
+
+    function goto(step){
+      currentStep = step;
+      for (const el of document.querySelectorAll('.step')) el.classList.remove('active');
+      $("step"+step).classList.add('active');
+      setStatus("");
+      for (let i=1;i<=5;i++){
+        const el=$("sp"+i); if(!el) continue;
+        el.classList.toggle('active', i===step);
+        el.classList.toggle('done', i<step);
+      }
+    }
+
+    async function scanPath(){
+      const path = $("source_path").value.trim();
+      if(!path){ alert('Enter a source folder path'); return; }
+      setStatus('Scanning...');
+      const r = await fetch(`/api/scan?path=${encodeURIComponent(path)}`);
+      const data = await r.json();
+      if(!r.ok){ setStatus(data.error||'Scan failed'); return; }
+      scanResult = data;
+      renderTree();
+      const last = path.replaceAll('\\\\','/').split('/').filter(Boolean).slice(-1)[0];
+      $("new_project_name").value = (last||'NewProject');
+      setStatus(`Found ${data.stats.files} files`);
+      rememberPath('recent_sources', path);
+      refreshRecent('recent_sources','recent_sources_list','source_path');
+      await fetchTools();
+      goto(2);
+    }
+
+    async function fetchTools(){
+      try { const r = await fetch('/api/tools'); if (r.ok) tools = await r.json(); } catch(e){}
+      const el = $("tools_info"); if (el) el.textContent = `Comby: ${tools.comby? 'available':'not found'}  ·  ast-grep: ${tools.ast_grep? 'available':'not found'}  ·  jscodeshift: ${tools.jscodeshift? 'available':'not found'}  ·  LibCST: ${tools.libcst? 'available':'not found'}`;
+      const pyFix = $("fix_py"); if (pyFix) pyFix.disabled = !tools.libcst;
+      const jsFix = $("fix_js"); if (jsFix) jsFix.disabled = false;
+    }
+
+    function renderTree(){
+      selectedPaths = new Set();
+      const container = $("tree");
+      container.innerHTML = '';
+
+      function nodeToHTML(node){
+        if(node.type==='dir'){
+          const children = (node.children||[]).map(nodeToHTML).join('');
+          const id = `chk-${node.path}`;
+          return `<li><label><input type="checkbox" checked data-path="${node.path}" data-type="dir" onchange="toggleNode(this)"> 📁 ${node.name}</label><ul>${children}</ul></li>`;
+        } else {
+          return `<li><label><input type="checkbox" checked data-path="${node.path}" data-type="file" onchange="toggleNode(this)"> 📄 ${node.name}</label></li>`;
+        }
+      }
+      container.innerHTML = `<div class="tree-actions">\
+        <button onclick="selectAll(true)">Select all</button>\
+        <button onclick="selectAll(false)">Select none</button>\
+        <button onclick="invertSelection()">Invert</button>\
+      </div><ul class="tree-root">${nodeToHTML(scanResult.tree)}</ul>`;
+
+      function collect(n){
+        if(n.type==='file'){ selectedPaths.add(n.path); }
+        for(const c of (n.children||[])) collect(c);
+      }
+      collect(scanResult.tree);
+      $("selected_count").textContent = selectedPaths.size;
+      renderGroupChips();
+    }
+
+    function toggleNode(cb){
+      const p = cb.getAttribute('data-path');
+      const t = cb.getAttribute('data-type');
+      if(t==='file'){
+        if(cb.checked) selectedPaths.add(p); else selectedPaths.delete(p);
+      } else {
+        const li = cb.closest('li');
+        for (const child of li.querySelectorAll('input[type=checkbox]')){
+          child.checked = cb.checked;
+          if(child.getAttribute('data-type')==='file'){
+            const fp = child.getAttribute('data-path');
+            if(cb.checked) selectedPaths.add(fp); else selectedPaths.delete(fp);
+          }
+        }
+      }
+      $("selected_count").textContent = selectedPaths.size;
+    }
+
+    function selectAll(flag){
+      for(const cb of document.querySelectorAll('#tree input[type=checkbox][data-type=file]')){
+        cb.checked = flag; const p = cb.getAttribute('data-path'); if(flag) selectedPaths.add(p); else selectedPaths.delete(p);
+      }
+      $("selected_count").textContent = selectedPaths.size;
+    }
+    function invertSelection(){
+      for(const cb of document.querySelectorAll('#tree input[type=checkbox][data-type=file]')){
+        const p = cb.getAttribute('data-path');
+        cb.checked = !cb.checked; if(cb.checked) selectedPaths.add(p); else selectedPaths.delete(p);
+      }
+      $("selected_count").textContent = selectedPaths.size;
+    }
+
+    function filterTree(){
+      const q = $("tree_search").value.toLowerCase();
+      const items = document.querySelectorAll('#tree li');
+      for(const li of items){
+        const label = li.textContent.toLowerCase();
+        li.style.display = (!q || label.includes(q)) ? '' : 'none';
+      }
+    }
+    function expandAll(flag){
+      for(const ul of document.querySelectorAll('#tree ul')){ ul.style.display = flag ? '' : 'none'; }
+      const root = document.querySelector('#tree .tree-root'); if (root) root.style.display = '';
+    }
+
+    function renderGroupChips(){
+      const cont = $("common_groups"); if(!cont || !scanResult?.tree) return;
+      const names = new Set(["src","apps","packages","services","server","client","frontend","backend","lib","core","api","tests","test","public","assets","config","scripts"]);
+      const children = (scanResult.tree.children||[]).filter(n=>n.type==='dir' && names.has(n.name));
+      if(children.length===0){ cont.innerHTML = ''; return; }
+      const chips = children.map(n=>`<button class="chip" onclick="toggleGroup('${n.name}')">${n.name}/ (${countFiles(n)})</button>`).join(' ');
+      cont.innerHTML = `<div class="help" style="margin-bottom:6px">Quick select:</div>${chips}`;
+    }
+    function countFiles(node){
+      let c=0; if(node.type==='file') return 1; for(const ch of (node.children||[])) c += countFiles(ch); return c;
+    }
+    function toggleGroup(name){
+      const prefix = name + '/';
+      let total=0, sel=0;
+      for(const cb of document.querySelectorAll('#tree input[type=checkbox][data-type=file]')){
+        const p = cb.getAttribute('data-path'); if(!p.startsWith(prefix)) continue; total++;
+        if(selectedPaths.has(p)) sel++;
+      }
+      const select = sel < Math.max(1, Math.floor(total*0.5));
+      for(const cb of document.querySelectorAll('#tree input[type=checkbox][data-type=file]')){
+        const p = cb.getAttribute('data-path'); if(!p.startsWith(prefix)) continue;
+        cb.checked = select; if(select) selectedPaths.add(p); else selectedPaths.delete(p);
+      }
+      $("selected_count").textContent = selectedPaths.size;
+    }
+
+    async function makePlan(){
+      const body = {
+        source_path: scanResult.root,
+        include_paths: Array.from(selectedPaths),
+        new_project_name: $("new_project_name").value.trim() || 'NewProject',
+        old_brand: $("old_brand").value.trim() || 'OldBrand',
+        new_brand: $("new_brand").value.trim() || 'NewBrand',
+        brand_map: getBrandMap(),
+        scrub_secrets: $("scrub_secrets").checked,
+        dest_path: $("dest_path").value.trim(),
+        patterns: getPatterns(),
+        fix_imports: { python: $("fix_py")?.checked || false, js: $("fix_js")?.checked || false }
+      };
+      if(!body.dest_path){ alert('Enter a destination folder path'); return; }
+      setStatus('Planning...');
+      const r = await fetch('/api/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const data = await r.json();
+      if(!r.ok){ setStatus(data.error||'Plan failed'); return; }
+      window.currentPlan = data.plan;
+      renderPlan();
+      goto(4);
+    }
+
+    function renderPlan(){
+      const p = window.currentPlan;
+      $("plan_summary").innerHTML = `
+        <div class="plan-items">
+          <div class="plan-item"><span class="badge">Source</span> <span class="help" style="word-break:break-all">${p.source_root}</span></div>
+          <div class="plan-item"><span class="badge">Destination</span> <span class="help" style="word-break:break-all">${p.dest_root}</span></div>
+          <div class="plan-item"><span class="badge">Files</span> ${p.actions.length}</div>
+          <div class="plan-item"><span class="badge">Brand</span> ${p.old_brand} → ${p.new_brand}</div>
+          <div class="plan-item"><span class="badge">Secrets</span> ${p.scrub_secrets ? '🧹 Scrub' : '↩ Keep'}</div>
+          <div class="plan-item"><span class="badge">Patterns</span> ${p.patterns?.length||0}</div>
+        </div>
+      `;
+      const list = p.actions.slice(0, 200).map(a=>`${a.type.toUpperCase()} ${a.src} -> ${a.dst}`).join('\n');
+      $("plan_log").textContent = list + (p.actions.length>200 ? `\n... and ${p.actions.length-200} more` : '');
+      $("plan_warnings").innerHTML = (p.warnings||[]).map(w=>`<div class="warn">⚠ ${w}</div>`).join('') || '<span class="muted">None</span>';
+
+      const res = p.previews?.residuals || { old_brand_hits:{}, secret_hits:[], import_warnings:[] };
+      const brandFiles = Object.keys(res.old_brand_hits);
+      const resEl = $("residuals"); if (resEl) {
+        resEl.innerHTML = `
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+            <span class="pill">OldBrand leftovers: <strong>${brandFiles.length}</strong></span>
+            <span class="pill">Secret-like: <strong>${res.secret_hits.length}</strong></span>
+            <span class="pill">Import warnings: <strong>${res.import_warnings.length}</strong></span>
+          </div>
+        `;
+      }
+      const resDet = $("residuals_detail"); if (resDet) {
+        resDet.innerHTML = `
+          ${brandFiles.slice(0,50).map(p=>`<div class="warn">⚠ ${p}</div>`).join('')}
+          ${res.secret_hits.slice(0,50).map(p=>`<div class="danger">🔑 ${p}</div>`).join('')}
+          ${res.import_warnings.slice(0,50).map(p=>`<div class="warn">↩ ${p}</div>`).join('')}
+        `;
+      }
+
+      const diffs = p.previews?.diffs || {};
+      const entries = Object.entries(diffs).slice(0, 100);
+      const diffsEl = $("diffs"); if (diffsEl) diffsEl.innerHTML = entries.length ? entries.map(([k,v])=>`<details><summary>${k}</summary><pre class="log">${escapeHtml(v)}</pre></details>`).join('') : '<span class="muted">No text changes</span>';
+
+      try {
+        const aiMaps = document.querySelectorAll('.bm-row.ai-mark').length;
+        const aiPats = document.querySelectorAll('.pat-row.ai-mark').length;
+        if (aiMaps || aiPats) {
+          const ps = document.createElement('div');
+          ps.className = 'help'; ps.style.marginTop = '8px';
+          ps.textContent = `AI-added: ${aiMaps} mapping${aiMaps!==1?'s':''}, ${aiPats} pattern${aiPats!==1?'s':''}`;
+          document.getElementById('plan_summary').appendChild(ps);
+        }
+      } catch(e){}
+    }
+
+    async function applyPlan(){
+      setStatus('Generating...');
+      const r = await fetch('/api/apply', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ plan: window.currentPlan })});
+      const data = await r.json();
+      if(!r.ok){ setStatus(data.error||'Apply failed'); return; }
+      showResult(data);
+      $("apply_log").textContent = data.log.join('\n');
+      setStatus('');
+      goto(5);
+    }
+
+    function showResult(data){
+      $("apply_result").innerHTML = `
+        <div class="success-hero">
+          <div class="success-ring">✓</div>
+          <div style="font-size:17px;font-weight:700;color:var(--success)">Project Generated!</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+            <span class="badge">Copied: ${data.copied||0}</span>
+            <span class="badge">Transformed: ${data.transformed||0}</span>
+          </div>
+          <div class="help" style="word-break:break-all;max-width:500px">${data.dest_root||''}</div>
+        </div>
+      `;
+    }
+
+    let es = null; let currentJob = null;
+    async function applyPlanStream(){
+      if(!window.currentPlan){ alert('Make a plan first'); return; }
+      setStatus('Starting...');
+      const r = await fetch('/api/apply/start', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ plan: window.currentPlan })});
+      const data = await r.json();
+      if(!r.ok){ setStatus(data.error||'Start failed'); return; }
+      currentJob = data.id; setStatus('Streaming...');
+      const logEl = $("stream_log"); if (logEl) logEl.textContent = '';
+      es = new EventSource(`/api/apply/stream?id=${currentJob}`);
+      es.addEventListener('log', (e)=>{ if (logEl) { logEl.textContent += e.data + '\n'; logEl.scrollTop = logEl.scrollHeight; }});
+      es.addEventListener('done', (e)=>{
+        try { const res = JSON.parse(e.data); showResult(res); $("apply_log").textContent = (res.log||[]).join('\n'); goto(5); } catch(err){ setStatus('Done'); }
+        es.close(); es = null; currentJob = null;
+      });
+      es.onerror = ()=>{ setStatus('Stream error'); };
+    }
+    async function cancelApplyStream(){
+      if(!currentJob) return; try{ await fetch('/api/apply/cancel', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: currentJob })}); } catch(e){}
+      if (es) { es.close(); es = null; }
+      setStatus('Cancelled');
+    }
+
+    async function saveRecipe(){
+      const path = prompt('Save recipe to path (.yml/.yaml/.json)'); if(!path) return;
+      const settings = {
+        includes: Array.from(selectedPaths),
+        excludes: (scanResult?.excludes)||[],
+        brand_map: getBrandMap(),
+        scrub: $("scrub_secrets").checked ? ['secrets'] : [],
+        patterns: getPatterns()
+      };
+      const r = await fetch('/api/recipe/save', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ path, settings })});
+      const data = await r.json(); if(!r.ok){ alert(data.error||'Save failed'); return; }
+      alert('Saved: '+data.path);
+    }
+
+    function getBrandMap(){
+      const rows = document.querySelectorAll('.bm-row');
+      const out = [];
+      for(const row of rows){
+        const from = row.querySelector('.bm-from').value.trim();
+        const to = row.querySelector('.bm-to').value.trim();
+        if(from) out.push({from, to});
+      }
+      return out;
+    }
+    function addBrandRow(from='', to='', origin=''){
+      const c = $("brand_map"); if(!c) return;
+      const div = document.createElement('div');
+      div.className = 'row bm-row' + (origin==='ai' ? ' ai-mark' : '');
+      div.style.cssText = 'margin-bottom:8px';
+      div.innerHTML = `<input class="bm-from" type="text" placeholder="Old" value="${from}"><span style="color:var(--text-muted);flex:0">→</span><input class="bm-to" type="text" placeholder="New" value="${to}">` + (origin==='ai' ? `<span class="ai-tag">AI</span>`:'') + `<button class="btn-ghost" onclick="this.parentElement.remove()" title="Remove" style="flex:0;padding:5px 9px">✕</button>`;
+      c.appendChild(div);
+    }
+
+    function getPatterns(){
+      const box = $("enable_patterns"); if(!box || !box.checked) return [];
+      const arr = [];
+      for(const row of document.querySelectorAll('.pat-row')){
+        const tool = row.querySelector('.pat-tool').value;
+        const matcher = row.querySelector('.pat-matcher').value.trim() || '.';
+        const match = row.querySelector('.pat-match').value;
+        const rewrite = row.querySelector('.pat-rewrite').value;
+        if(match) arr.push({tool, matcher, match, rewrite});
+      }
+      return arr;
+    }
+    function addPattern(tool='comby', matcher='.', match='', rewrite='', origin=''){
+      const c = $("patterns"); if(!c) return;
+      const div = document.createElement('div');
+      div.className = 'card pat-row' + (origin==='ai' ? ' ai-mark' : '');
+      div.style.cssText = 'padding:12px;margin-bottom:8px';
+      div.innerHTML = `
+        <div class="row" style="margin-bottom:8px">
+          <select class="pat-tool" style="flex:0 0 120px"><option value="comby">Comby</option><option value="ast-grep">ast-grep</option></select>
+          <input class="pat-matcher" type="text" placeholder="matcher (e.g., ., .go)" value="${matcher}">
+          ${origin==='ai' ? `<span class="ai-tag">AI</span>` : ''}
+          <button class="btn-ghost" onclick="this.parentElement.parentElement.remove()" style="flex:0">Remove</button>
+        </div>
+        <div class="field"><input class="pat-match" type="text" placeholder="match pattern" value="${match}"></div>
+        <div class="field"><input class="pat-rewrite" type="text" placeholder="rewrite template" value="${rewrite}"></div>
+      `;
+      c.appendChild(div);
+    }
+
+    function escapeHtml(s){
+      return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    }
+
+    function toggleAllDiffs(open){
+      for(const d of document.querySelectorAll('#diffs details')){ d.open = open; }
+    }
+
+    function rememberPath(key, val){
+      const list = JSON.parse(localStorage.getItem(key)||'[]');
+      const arr = [val, ...list.filter(v=>v!==val)].slice(0,5); localStorage.setItem(key, JSON.stringify(arr));
+    }
+    function refreshRecent(key, listId, targetId){
+      const list = JSON.parse(localStorage.getItem(key)||'[]');
+      const el = $(listId); if(!el) return;
+      el.innerHTML = list.map(v=>`<button class="btn-sec" style="font-size:11px;padding:3px 10px" onclick="document.getElementById('${targetId}').value='${v.replace(/'/g,"&#39;")}'">${v}</button>`).join(' ');
+    }
+
+    async function saveCurrentPlan(){
+      const name = prompt('Name this plan (optional id)')||'';
+      const r = await fetch('/api/plans', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, plan: window.currentPlan})});
+      const data = await r.json();
+      if(!r.ok){ alert(data.error||'Save failed'); return; }
+      alert('Saved plan: '+data.id);
+      listPlans();
+    }
+    async function listPlans(){
+      const r = await fetch('/api/plans'); const data = await r.json();
+      if(!r.ok){ return; }
+      $("plans_list").innerHTML = (data.plans||[]).map(p=>`<a href="#" style="color:var(--primary-text);font-size:13px" onclick="loadPlan('${p.id}')">${p.name}</a>`).join(' · ');
+    }
+    async function loadPlan(id){
+      const r = await fetch('/api/plans/'+id); const data = await r.json();
+      if(!r.ok){ alert('Load failed'); return; }
+      window.currentPlan = data.plan; renderPlan(); goto(4);
+    }
+    async function loadRecipe(){
+      const p = prompt('Path to recipe (JSON or simple YAML)'); if(!p) return;
+      const r = await fetch('/api/recipe/load?path='+encodeURIComponent(p)); const data = await r.json();
+      if(!r.ok){ alert(data.error||'Load failed'); return; }
+      const s = data.settings||{};
+      const bm = s.brand_map||[];
+      const c = $("brand_map"); if (c) { c.innerHTML = ''; (bm.length? bm : [{from: $("old_brand").value, to: $("new_brand").value}]).forEach(m=>addBrandRow(m.from||'', m.to||'')); }
+      alert('Recipe loaded. Review brand map and options, then make a new plan.');
+    }
+  </script>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <div class="brand-wrap">
+        <div class="brand-icon">🔐</div>
+        <div>
+          <h1>XchangeVault</h1>
+          <div class="header-sub">Extract &amp; transform code into a clean new project — runs locally</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-sec" onclick="toggleAssistant()">💬 Assistant</button>
+        <button class="btn-danger" onclick="shutdownServer()">⏻ Stop</button>
+      </div>
+    </div>
+    <div class="steps">
+      <span class="step-pill active" id="sp1">① Pick Source</span>
+      <div class="step-connector"></div>
+      <span class="step-pill" id="sp2">② Files</span>
+      <div class="step-connector"></div>
+      <span class="step-pill" id="sp3">③ Customize</span>
+      <div class="step-connector"></div>
+      <span class="step-pill" id="sp4">④ Review</span>
+      <div class="step-connector"></div>
+      <span class="step-pill" id="sp5">⑤ Done</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="status"></div>
+
+    <!-- Step 1 -->
+    <div id="step1" class="step active card">
+      <h3>Pick a Source Folder</h3>
+      <div class="row" style="margin-bottom:8px">
+        <input id="source_path" type="text" placeholder="/absolute/path/to/source/project"
+          onfocus="refreshRecent('recent_sources','recent_sources_list','source_path')" />
+        <button onclick="scanPath()" style="flex:0 0 auto">Scan Project →</button>
+      </div>
+      <div id="recent_sources_list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+      <p class="help" style="margin:10px 0 0">Paste the full folder path. Your source is never modified — we only read from it.</p>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="step2" class="step card">
+      <h3>Choose Files to Copy</h3>
+      <div class="search">
+        <input id="tree_search" type="text" placeholder="Search files (e.g., auth, .py, src/)" oninput="filterTree()" />
+        <button class="btn-sec" onclick="expandAll(true)">Expand</button>
+        <button class="btn-sec" onclick="expandAll(false)">Collapse</button>
+      </div>
+      <div id="common_groups" class="chips"></div>
+      <div class="tree" id="tree"></div>
+      <div class="footer">
+        <div><span class="badge">Selected</span>&ensp;<span id="selected_count" style="font-weight:700">0</span> files</div>
+        <div>
+          <button class="btn-sec" onclick="goto(1)">← Back</button>
+          <button onclick="goto(3)">Next: Customize →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="step3" class="step">
+      <div class="cols" style="margin-bottom:14px">
+        <div class="card">
+          <h4>Project</h4>
+          <div class="field">
+            <label>New Project Name</label>
+            <input id="new_project_name" type="text" placeholder="NewProject" />
+          </div>
+          <div class="field">
+            <label>Destination Folder</label>
+            <input id="dest_path" type="text" placeholder="/absolute/path/to/output"
+              onfocus="refreshRecent('recent_dests','recent_dests_list','dest_path')" />
+          </div>
+          <div id="recent_dests_list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+        </div>
+        <div class="card">
+          <h4>Replace Names</h4>
+          <p class="help" style="margin:0 0 10px">Swap old brand names for new ones across all text files.</p>
+          <div class="field">
+            <label>Old Brand</label>
+            <input id="old_brand" type="text" value="OldBrand" />
+          </div>
+          <div class="field">
+            <label>New Brand</label>
+            <input id="new_brand" type="text" value="NewBrand" />
+          </div>
+          <hr class="divider" />
+          <div id="brand_map"></div>
+          <button class="btn-sec" onclick="addBrandRow()" style="width:100%;margin-top:4px">+ Add mapping</button>
+          <label style="display:flex;gap:8px;align-items:center;margin-top:12px;cursor:pointer">
+            <input id="scrub_secrets" type="checkbox" checked /> Remove obvious secrets in text files
+          </label>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h4>Structural Patterns</h4>
+        <div class="help" id="tools_info" style="margin-bottom:10px">Detecting tools…</div>
+        <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
+          <input id="enable_patterns" type="checkbox" /> Enable Comby / ast-grep rewrite patterns
+        </label>
+        <div id="patterns"></div>
+        <button class="btn-sec" onclick="addPattern()" style="margin-top:4px">+ Add pattern</button>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h4>Import Fixers</h4>
+        <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
+          <input id="fix_py" type="checkbox" /> Auto-fix Python imports (LibCST or regex fallback)
+        </label>
+        <label style="display:flex;gap:8px;align-items:center;cursor:pointer">
+          <input id="fix_js" type="checkbox" /> Auto-fix JS/TS imports (jscodeshift or regex fallback)
+        </label>
+      </div>
+
+      <div class="footer">
+        <div>
+          <button class="btn-sec" onclick="loadRecipe()">Load Recipe</button>
+          <button class="btn-sec" onclick="saveRecipe()">Save Recipe</button>
+        </div>
+        <div>
+          <button class="btn-sec" onclick="goto(2)">← Back</button>
+          <button class="btn-sec" onclick="aiSuggest()">✨ AI Suggestions</button>
+          <button onclick="makePlan()">Next: Review →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div id="step4" class="step">
+      <div class="card" style="margin-bottom:14px">
+        <h4>Plan Summary</h4>
+        <div id="plan_summary"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h4>Pre-generation Checks</h4>
+        <div id="residuals"></div>
+        <div id="residuals_detail"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h4>Diff Preview <span class="help">(first 100 changed files)</span></h4>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn-sec" onclick="toggleAllDiffs(true)">Expand all</button>
+          <button class="btn-sec" onclick="toggleAllDiffs(false)">Collapse all</button>
+        </div>
+        <div id="diffs"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h4>Planned Actions <span class="help">(first 200)</span></h4>
+        <div class="log" id="plan_log"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h4>Warnings</h4>
+        <div id="plan_warnings"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:14px">
+        <h4>Live Generation Log</h4>
+        <pre class="log" id="stream_log" style="min-height:60px"></pre>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="applyPlanStream()">⚡ Generate with live log</button>
+          <button class="btn-sec" onclick="cancelApplyStream()">Cancel</button>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div>
+          <button class="btn-sec" onclick="listPlans()">List saved plans</button>
+          <span id="plans_list"></span>
+        </div>
+        <div>
+          <button class="btn-sec" onclick="goto(3)">← Back</button>
+          <button class="btn-sec" onclick="saveCurrentPlan()">Save Plan</button>
+          <button class="btn-sec" onclick="aiAnalyze()">✨ AI Analysis</button>
+          <button onclick="applyPlan()">🚀 Generate Now</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div id="step5" class="step card">
+      <div id="apply_result"></div>
+      <div class="card" style="margin-top:14px;margin-bottom:0">
+        <h4>Full Log</h4>
+        <div class="log" id="apply_log"></div>
+      </div>
+      <div class="footer">
+        <div></div>
+        <div>
+          <button onclick="goto(1)">↩ Start Over</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Assistant sidebar -->
+  <div id="assistant" style="display:none">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-weight:700;font-size:14px">💬 Assistant</div>
+      <button class="btn-ghost" onclick="toggleAssistant()">✕</button>
+    </div>
+    <div id="assistant-key-wrap" style="padding:14px;border-bottom:1px solid var(--border);display:none">
+      <div class="help" style="margin-bottom:8px">Enter your DeepSeek API key to enable AI.</div>
+      <div class="row">
+        <input id="assistant-key" type="password" placeholder="sk-..." />
+        <button onclick="saveAssistantKey()" style="flex:0 0 auto">Save</button>
+      </div>
+    </div>
+    <div id="assistant-messages" style="flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px"></div>
+    <div style="padding:12px;border-top:1px solid var(--border)">
+      <div class="row">
+        <textarea id="assistant-input" rows="2" placeholder="Ask something about this plan…"></textarea>
+        <button onclick="assistantSend()" style="flex:0 0 auto;align-self:flex-end">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize defaults
+    addBrandRow('OldBrand','NewBrand');
+    refreshRecent('recent_sources','recent_sources_list','source_path');
+    refreshRecent('recent_dests','recent_dests_list','dest_path');
+    const _origMakePlan = makePlan; makePlan = async function(){ const d = $("dest_path").value.trim(); if(d) rememberPath('recent_dests', d); return _origMakePlan(); };
+
+    function toggleAssistant(){
+      const el = document.getElementById('assistant'); if (!el) return;
+      el.style.display = (el.style.display==='flex')? 'none' : 'flex';
+      if (el.style.display==='flex') initAssistant();
+    }
+    async function initAssistant(){
+      try{
+        const r = await fetch('/api/config'); if(!r.ok) return; const cfg = await r.json();
+        document.getElementById('assistant-key-wrap').style.display = cfg.api_key_set? 'none':'block';
+      }catch(e){}
+    }
+    async function saveAssistantKey(){
+      const key = document.getElementById('assistant-key').value.trim(); if(!key) return;
+      const r = await fetch('/api/chat/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ api_key: key, model: 'deepseek-chat' })});
+      const d = await r.json(); if(!r.ok || !d.ok){ alert(d.error||'Save failed'); return; }
+      document.getElementById('assistant-key-wrap').style.display = 'none';
+    }
+    async function assistantSend(){
+      const ta = document.getElementById('assistant-input'); const msg = ta.value.trim(); if(!msg) return; ta.value='';
+      const body = { message: msg };
+      if(window.currentPlan) body.plan = window.currentPlan; else if(window.scanResult) body.scan = window.scanResult;
+      const r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const data = await r.json(); if(!r.ok){ alert(data.error||'Chat failed'); return; }
+      const box = document.getElementById('assistant-messages');
+      const u = document.createElement('div'); u.textContent = 'You: ' + msg; box.appendChild(u);
+      const a = document.createElement('div'); a.textContent = data.response; box.appendChild(a); box.scrollTop = box.scrollHeight;
+    }
+
+    async function ensurePlanForAI(){
+      if(window.currentPlan) return window.currentPlan;
+      const body = {
+        source_path: scanResult.root,
+        include_paths: Array.from(selectedPaths),
+        new_project_name: document.getElementById('new_project_name').value.trim() || 'NewProject',
+        old_brand: document.getElementById('old_brand').value.trim() || 'OldBrand',
+        new_brand: document.getElementById('new_brand').value.trim() || 'NewBrand',
+        brand_map: getBrandMap(),
+        scrub_secrets: document.getElementById('scrub_secrets').checked,
+        dest_path: document.getElementById('dest_path').value.trim(),
+        patterns: getPatterns(),
+        fix_imports: { python: document.getElementById('fix_py')?.checked || false, js: document.getElementById('fix_js')?.checked || false }
+      };
+      const r = await fetch('/api/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const data = await r.json(); if(!r.ok){ setStatus(data.error||'Plan failed'); throw new Error('plan'); }
+      window.currentPlan = data.plan; return window.currentPlan;
+    }
+    async function aiSuggest(){
+      try{ await ensurePlanForAI(); }catch(e){ return; }
+      setStatus('Asking AI for suggestions...');
+      const r = await fetch('/api/chat/structured', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: 'Suggest brand_map, patterns and import_fixes for this extraction plan', plan: window.currentPlan })});
+      const data = await r.json(); if(!r.ok){ setStatus(data.error||'AI failed'); return; }
+      const res = data.result||{};
+      window._lastAISuggestions = res;
+      showAIModal(res);
+      setStatus('AI suggestions ready');
+    }
+    async function aiAnalyze(){
+      if(!window.currentPlan){ alert('Make a plan first'); return; }
+      setStatus('Asking AI to analyze plan...');
+      const r = await fetch('/api/chat/structured', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message: 'Analyze risks, leftovers, and propose fixes for this extraction plan', plan: window.currentPlan })});
+      const data = await r.json(); if(!r.ok){ setStatus(data.error||'AI failed'); return; }
+      const res = data.result||{}; const warn = document.getElementById('plan_warnings'); if(warn){
+        const risks = (res.risks||[]).map(t=>`<div class="warn">✨ AI: ${t}</div>`).join('');
+        const recs  = (res.recommendations||[]).map(t=>`<div class="muted">💡 AI: ${t}</div>`).join('');
+        warn.innerHTML = (warn.innerHTML||'') + risks + recs;
+      }
+      setStatus('AI analysis added');
+    }
+
+    async function shutdownServer(){
+      if(!confirm('Stop the local server now?')) return;
+      setStatus('Stopping server...');
+      try{
+        await fetch('/api/shutdown', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})});
+        setStatus('Server stopping. You can close this tab.');
+      }catch(e){ setStatus('Stop request sent.'); }
+    }
+
+    function showAIModal(res){
+      const mm = (res.brand_map||[]).map((m,i)=>`<div><label><input type="checkbox" checked data-kind="map" data-index="${i}"> ${escapeHtml(m.from||'')} → ${escapeHtml(m.to||'')}</label></div>`).join('') || '<div class="help">No replacements suggested</div>';
+      const pp = (res.patterns||[]).map((p,i)=>`<div><label><input type="checkbox" checked data-kind="pat" data-index="${i}"> [${escapeHtml(p.tool||'comby')}] (${escapeHtml(p.matcher||'.')}) ${escapeHtml(p.match||'')} → ${escapeHtml(p.rewrite||'')}</label></div>`).join('') || '<div class="help">No patterns suggested</div>';
+      document.getElementById('ai-map-list').innerHTML = mm;
+      document.getElementById('ai-pat-list').innerHTML = pp;
+      document.getElementById('ai-fix-py').checked = !!(res.import_fixes && res.import_fixes.python);
+      document.getElementById('ai-fix-js').checked = !!(res.import_fixes && res.import_fixes.js);
+      document.getElementById('ai-modal').style.display = 'flex';
+    }
+    function hideAIModal(){ document.getElementById('ai-modal').style.display = 'none'; }
+    function applyAIModal(){
+      const res = window._lastAISuggestions||{};
+      const picks = document.querySelectorAll('#ai-modal input[type=checkbox][data-kind]');
+      picks.forEach(cb=>{
+        if(!cb.checked) return; const kind = cb.getAttribute('data-kind'); const idx = parseInt(cb.getAttribute('data-index'))||0;
+        if(kind==='map'){
+          const m = (res.brand_map||[])[idx]; if(m) addBrandRow(m.from||'', m.to||'', 'ai');
+        } else if(kind==='pat'){
+          const p = (res.patterns||[])[idx]; if(p) addPattern(p.tool||'comby', p.matcher||'.', p.match||'', p.rewrite||'', 'ai');
+        }
+      });
+      const py = document.getElementById('ai-fix-py').checked; const js = document.getElementById('ai-fix-js').checked;
+      const fpy = document.getElementById('fix_py'); const fjs = document.getElementById('fix_js'); if(fpy) fpy.checked = py; if(fjs) fjs.checked = js;
+      hideAIModal();
+    }
+  </script>
+</body>
+</html>

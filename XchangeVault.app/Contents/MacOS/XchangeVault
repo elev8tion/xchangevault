@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# XchangeVault — macOS App Bundle Launcher
+
+set -euo pipefail
+
+# ── Config ─────────────────────────────────────────────────────────
+APP_DISPLAY_NAME="XchangeVault"
+PYTHON_SCRIPT="server.py"
+REQUIRED_FILES=("server.py" "frontend/index.html")
+PORT_START=3000
+PORT_END=3009
+PID_DIR="$HOME/.xchangevault"
+LOG_KEEP_DAYS=7
+INACTIVITY_TIMEOUT=600
+
+# ── Resolve project path ──────────────────────────────────────────
+BUNDLE_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+PROJECT_DIR="$(dirname "$BUNDLE_DIR")"
+
+for f in "${REQUIRED_FILES[@]}"; do
+  if [ ! -f "$PROJECT_DIR/$f" ]; then
+    osascript -e "display dialog \"Error: Required file not found:\n\n$PROJECT_DIR/$f\n\nPlease keep ${APP_DISPLAY_NAME}.app in its original project folder.\" buttons {\"OK\"} default button 1 with icon stop with title \"${APP_DISPLAY_NAME}\""
+    exit 1
+  fi
+done
+
+cd "$PROJECT_DIR"
+
+# ── Find Python ───────────────────────────────────────────────────
+PYTHON_BIN="$PROJECT_DIR/venv/bin/python3"
+if [ ! -x "$PYTHON_BIN" ]; then
+  for candidate in \
+    "/opt/homebrew/bin/python3" \
+    "/usr/local/bin/python3" \
+    "$(command -v python3 2>/dev/null || true)"; do
+    if [ -x "$candidate" ]; then PYTHON_BIN="$candidate"; break; fi
+  done
+fi
+if [ ! -x "$PYTHON_BIN" ]; then
+  osascript -e "display dialog \"Python 3 not found.\n\nRun setup.sh to install dependencies and create a virtual environment.\" buttons {\"OK\"} default button 1 with icon stop with title \"${APP_DISPLAY_NAME}\""
+  exit 1
+fi
+
+# ── Clean start flag ──────────────────────────────────────────────
+EXTRA_FLAGS=""
+if [ "${CLEAN_START:-}" = "1" ]; then
+  EXTRA_FLAGS="--clean"
+  osascript -e "display notification \"Starting with clean state...\" with title \"${APP_DISPLAY_NAME}\""
+fi
+
+# ── Kill existing server ──────────────────────────────────────────
+PID_FILE="$PID_DIR/server.pid"
+mkdir -p "$PID_DIR"
+if [ -f "$PID_FILE" ]; then
+  OLD_PID=$(cat "$PID_FILE")
+  if kill -0 "$OLD_PID" 2>/dev/null; then
+    kill "$OLD_PID" 2>/dev/null || true
+    sleep 1
+    kill -9 "$OLD_PID" 2>/dev/null || true
+  fi
+  rm -f "$PID_FILE"
+fi
+pkill -f "python.*${PYTHON_SCRIPT}" 2>/dev/null || true
+sleep 0.5
+
+# ── Find available port ───────────────────────────────────────────
+PORT=$PORT_START
+while lsof -i :"$PORT" >/dev/null 2>&1 && [ "$PORT" -lt "$PORT_END" ]; do
+  PORT=$((PORT + 1))
+done
+if lsof -i :"$PORT" >/dev/null 2>&1; then
+  osascript -e "display dialog \"No available port found between $PORT_START and $PORT_END.\" buttons {\"OK\"} default button 1 with icon stop with title \"${APP_DISPLAY_NAME}\""
+  exit 1
+fi
+
+# ── Logs ──────────────────────────────────────────────────────────
+LOG_DIR="$PID_DIR/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/xchangevault-$(date +%Y%m%d-%H%M%S).log"
+find "$LOG_DIR" -name "*.log" -mtime +"$LOG_KEEP_DAYS" -delete 2>/dev/null || true
+
+# ── Start server ──────────────────────────────────────────────────
+osascript -e "display notification \"Starting server on port $PORT...\" with title \"${APP_DISPLAY_NAME}\""
+INACTIVITY_TIMEOUT="$INACTIVITY_TIMEOUT" "$PYTHON_BIN" -u "$PYTHON_SCRIPT" --port "$PORT" > "$LOG_FILE" 2>&1 &
+SERVER_PID=$!
+echo "$SERVER_PID" > "$PID_FILE"
+
+sleep 2
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  ERROR_TAIL=$(tail -20 "$LOG_FILE" 2>/dev/null || echo "(no log output)")
+  osascript -e "display dialog \"Server failed to start.\n\nLog: $LOG_FILE\n\nLast output:\n${ERROR_TAIL:0:300}\" buttons {\"OK\"} default button 1 with icon stop with title \"${APP_DISPLAY_NAME}\""
+  exit 1
+fi
+
+sleep 1
+osascript -e "open location \"http://localhost:$PORT\""
+osascript -e "display notification \"Running on port $PORT\" with title \"${APP_DISPLAY_NAME}\" subtitle \"Ready!\""
+exit 0
