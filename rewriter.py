@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import re
 import shutil
@@ -9,6 +10,7 @@ import fnmatch
 import shutil
 import subprocess
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 TEXT_LIKE_EXTS = {
@@ -32,6 +34,49 @@ SECRET_PATTERNS = [
     re.compile(r"(?i)(sentry_dsn\s*[:=]\s*)(https?://[^\s]+)"),
     re.compile(r"(?i)(database_url\s*[:=]\s*)([^\s]+)"),
 ]
+
+
+
+def _calc_entropy(s: str) -> float:
+    if not s:
+        return 0.0
+    freq = {}
+    for c in s:
+        freq[c] = freq.get(c, 0) + 1
+    n = len(s)
+    return -sum((count / n) * math.log2(count / n) for count in freq.values())
+
+
+def _is_high_entropy(value: str) -> bool:
+    if _calc_entropy(value) <= 4.5:
+        return False
+    if len(value) <= 20:
+        return False
+    classes = 0
+    if re.search(r'[a-z]', value):
+        classes += 1
+    if re.search(r'[A-Z]', value):
+        classes += 1
+    if re.search(r'[0-9]', value):
+        classes += 1
+    if re.search(r'[^a-zA-Z0-9]', value):
+        classes += 1
+    return classes >= 2
+
+
+_ASSIGN_RE = re.compile(r'(?m)^([A-Z_][A-Z0-9_]{2,}\s*[=:]\s*["\x27])([^"\x27]{20,})(["\x27])')
+
+
+def _scrub_entropy_secrets(text: str):
+    hits = []
+    def repl(m):
+        value = m.group(2)
+        if _is_high_entropy(value):
+            hits.append(f"{m.group(1).strip()}... (entropy redacted)")
+            return f"{m.group(1)}REDACTED{m.group(3)}"
+        return m.group(0)
+    scrubbed = _ASSIGN_RE.sub(repl, text)
+    return scrubbed, hits
 
 
 def is_binary(path: Path) -> bool:
@@ -99,7 +144,7 @@ def _scrub_secrets(text: str) -> str:
     return scrubbed
 
 
-def transform_bytes(path: Path, data: bytes, brand_map: List[Dict[str, str]], scrub_secrets: bool) -> bytes:
+def transform_bytes(path: Path, data: bytes, brand_map: List[Dict[str, str]], scrub_secrets: bool, normalize_line_endings: bool = True, template_vars=None):
     # Only attempt text transforms on text-like or utf-8 decodable
     try:
         text = data.decode("utf-8")
@@ -144,8 +189,18 @@ def transform_bytes(path: Path, data: bytes, brand_map: List[Dict[str, str]], sc
     # secrets
     if scrub_secrets:
         text = _scrub_secrets(text)
+        text, _ = _scrub_entropy_secrets(text)
 
-    return text.encode("utf-8")
+    crlf_normalized = False
+    if normalize_line_endings and '\r\n' in text:
+        text = text.replace('\r\n', '\n')
+        crlf_normalized = True
+
+    if template_vars:
+        for k, v in template_vars.items():
+            text = text.replace('{{' + k + '}}', str(v))
+
+    return text.encode('utf-8'), crlf_normalized
 
 
 def build_plan(
@@ -158,6 +213,10 @@ def build_plan(
     scrub_secrets: bool,
     brand_map: List[Dict[str, str]] = None,
     patterns: List[Dict[str, Any]] = None,
+    normalize_line_endings: bool = True,
+    generate_changelog: bool = True,
+    template_vars=None,
+    workers: int = 4,
 ) -> Dict[str, Any]:
     source_root = source_root.resolve()
     dest_base = dest_base.resolve()
@@ -174,6 +233,15 @@ def build_plan(
     else:
         if old_brand and new_brand:
             bm = [{"from": old_brand, "to": new_brand}]
+
+    from datetime import date as _date
+    auto_vars = {
+        'PROJECT_NAME': new_project_name,
+        'DATE': str(_date.today()),
+        'YEAR': str(_date.today().year),
+        'SOURCE_PROJECT': source_root.name,
+    }
+    merged_vars = {**auto_vars, **(template_vars or {})}
 
     actions: List[Dict[str, Any]] = []
     warnings: List[str] = []
@@ -210,7 +278,7 @@ def build_plan(
             })
 
     # Previews: diffs and residual scans (limited)
-    previews = _build_previews(source_root, actions, bm, scrub_secrets)
+    previews = _build_previews(source_root, actions, bm, scrub_secrets, normalize_line_endings=normalize_line_endings, template_vars=merged_vars)
 
     plan = {
         "source_root": str(source_root),
@@ -225,6 +293,10 @@ def build_plan(
         "warnings": warnings,
         "patterns": patterns or [],
         "previews": previews,
+        "normalize_line_endings": normalize_line_endings,
+        "generate_changelog": generate_changelog,
+        "template_vars": merged_vars,
+        "workers": workers,
     }
     return plan
 
@@ -235,6 +307,10 @@ def apply_plan(plan: Dict[str, Any], progress_cb: Optional[Callable[[str], None]
     dest_root = Path(plan["dest_root"]).resolve()
     scrub_secrets = bool(plan.get("scrub_secrets", False))
     brand_map = plan.get("brand_map") or []
+    normalize_line_endings = plan.get('normalize_line_endings', True)
+    gen_changelog = plan.get('generate_changelog', True)
+    template_vars = plan.get('template_vars') or {}
+    workers = plan.get('workers', 4)
 
     if dest_root.exists():
         # Prevent accidental overwrite if dir is non-empty
@@ -253,11 +329,14 @@ def apply_plan(plan: Dict[str, Any], progress_cb: Optional[Callable[[str], None]
             pass
     copied = 0
     transformed = 0
+    crlf_count = 0
+    lock = threading.Lock()
 
-    for act in plan.get("actions", []):
+    def _process_action(act):
+        nonlocal copied, transformed, crlf_count
         if cancel_checker and cancel_checker():
             _log("CANCEL requested; stopping apply")
-            break
+            return
         src_rel = act["src"]
         dst_rel = act["dst"]
         src_file = (source_root / src_rel).resolve()
@@ -270,21 +349,37 @@ def apply_plan(plan: Dict[str, Any], progress_cb: Optional[Callable[[str], None]
         dst_file.parent.mkdir(parents=True, exist_ok=True)
 
         if src_file.is_dir():
-            # Should not hit for 'copy' actions; skip
-            continue
+            return
 
         if is_binary(src_file):
             shutil.copy2(src_file, dst_file)
             _log(f"BIN  {src_rel} -> {dst_rel}")
-            copied += 1
+            with lock:
+                copied += 1
         else:
             data = src_file.read_bytes()
-            new_data = transform_bytes(src_file, data, brand_map, scrub_secrets)
-            if new_data != data:
-                transformed += 1
+            new_data, was_crlf = transform_bytes(src_file, data, brand_map, scrub_secrets, normalize_line_endings=normalize_line_endings, template_vars=template_vars)
+            was_transformed = new_data != data
             dst_file.write_bytes(new_data)
             _log(f"TEXT {src_rel} -> {dst_rel}")
-            copied += 1
+            with lock:
+                copied += 1
+                if was_transformed:
+                    transformed += 1
+                if was_crlf:
+                    crlf_count += 1
+
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {executor.submit(_process_action, act): act for act in plan.get("actions", [])}
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    _log(f"ERR {e}")
+    except Exception:
+        for act in plan.get("actions", []):
+            _process_action(act)
 
     # Optional: run structural rewrite patterns (e.g., Comby) if available
     patt = plan.get("patterns") or []
@@ -313,23 +408,55 @@ def apply_plan(plan: Dict[str, Any], progress_cb: Optional[Callable[[str], None]
     if not gitignore.exists():
         gitignore.write_text(".DS_Store\nnode_modules/\n.dist/\n.build/\n__pycache__/\n.venv/\nvenv/\n.env\n")
 
-    return {
+    result = {
         "ok": True,
         "copied": copied,
         "transformed": transformed,
+        "crlf_normalized": crlf_count,
         "dest_root": str(dest_root),
         "log": log,
         "warnings": plan.get("warnings", []),
     }
 
+    if gen_changelog:
+        changelog_text = generate_changelog(plan, result)
+        changelog_path = dest_root / "CHANGELOG.md"
+        if changelog_path.exists():
+            existing = changelog_path.read_text(encoding='utf-8')
+            changelog_path.write_text(changelog_text + existing, encoding='utf-8')
+        else:
+            changelog_path.write_text(changelog_text, encoding='utf-8')
 
-def _build_previews(source_root: Path, actions: List[Dict[str, Any]], brand_map: List[Dict[str, str]], scrub_secrets: bool) -> Dict[str, Any]:
+    return result
+
+
+
+def generate_changelog(plan: dict, result: dict) -> str:
+    from datetime import datetime as _dt
+    lines = [
+        f"## [{_dt.now().strftime('%Y-%m-%d %H:%M')}] Extraction",
+        f"- **Source**: {plan.get('source_root')}",
+        f"- **Destination**: {plan.get('dest_root')}",
+        f"- **Files copied**: {result.get('copied', 0)}",
+        f"- **Files transformed**: {result.get('transformed', 0)}",
+        f"- **CRLF normalized**: {result.get('crlf_normalized', 0)}",
+        f"- **Brand map**: {plan.get('brand_map', [])}",
+        f"- **Scrub secrets**: {plan.get('scrub_secrets', False)}",
+        f"- **Patterns**: {len(plan.get('patterns', []))} pattern(s)",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _build_previews(source_root: Path, actions: List[Dict[str, Any]], brand_map: List[Dict[str, str]], scrub_secrets: bool, normalize_line_endings: bool = True, template_vars=None) -> Dict[str, Any]:
     # Build unified diffs for first N text files and residual scans
     diffs: Dict[str, str] = {}
     residuals = {
         "old_brand_hits": {},  # path -> count
         "secret_hits": [],     # list of paths
         "import_warnings": [], # strings
+        "template_hits": {},
+        "entropy_hits": [],
     }
     included_set = {a["src"] for a in actions}
     max_diffs = 100
@@ -348,7 +475,7 @@ def _build_previews(source_root: Path, actions: List[Dict[str, Any]], brand_map:
             old_text = data.decode("utf-8")
         except UnicodeDecodeError:
             continue
-        new_bytes = transform_bytes(src_file, data, brand_map, scrub_secrets)
+        new_bytes, _ = transform_bytes(src_file, data, brand_map, scrub_secrets, normalize_line_endings=normalize_line_endings, template_vars=template_vars)
         try:
             new_text = new_bytes.decode("utf-8")
         except UnicodeDecodeError:
@@ -378,6 +505,16 @@ def _build_previews(source_root: Path, actions: List[Dict[str, Any]], brand_map:
             if pat.search(new_text):
                 residuals["secret_hits"].append(src_rel)
                 break
+
+        # entropy hits
+        _, entropy_found = _scrub_entropy_secrets(new_text)
+        if entropy_found:
+            residuals["entropy_hits"].append(src_rel)
+
+        # template hits
+        if re.search(r'\{\{[A-Z_][A-Z0-9_]*\}\}', new_text):
+            var_names = re.findall(r'\{\{([A-Z_][A-Z0-9_]*)\}\}', new_text)
+            residuals["template_hits"][src_rel] = list(set(var_names))
 
         # import warnings for JS/TS relative imports
         if src_file.suffix in {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}:

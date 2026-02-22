@@ -160,6 +160,60 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 400)
 
+        if path == "/api/deps":
+            qs = parse_qs(parsed.query)
+            src = (qs.get("source") or [""])[0].strip()
+            paths_str = (qs.get("paths") or [""])[0].strip()
+            if not src or not paths_str:
+                return self._json({"error": "Missing source or paths"}, 400)
+            rel_paths = [p.strip() for p in paths_str.split(",") if p.strip()]
+            try:
+                warnings = scanner.scan_imports(Path(src).expanduser().resolve(), rel_paths)
+                return self._json({"warnings": warnings, "graph": {}})
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if path == "/api/file":
+            qs = parse_qs(parsed.query)
+            src = (qs.get("source") or [""])[0].strip()
+            file_rel = (qs.get("file") or [""])[0].strip()
+            brand_map_str = (qs.get("brand_map") or ["[]"])[0]
+            scrub = (qs.get("scrub") or ["0"])[0] == "1"
+            if not src or not file_rel:
+                return self._json({"error": "Missing source or file"}, 400)
+            source_path = Path(src).expanduser().resolve()
+            file_path = (source_path / file_rel).resolve()
+            # Path traversal check
+            if not str(file_path).startswith(str(source_path)):
+                return self._json({"error": "Path traversal denied"}, 403)
+            if not file_path.exists():
+                return self._json({"error": "File not found"}, 404)
+            try:
+                brand_map = json.loads(brand_map_str)
+            except Exception:
+                brand_map = []
+            size = file_path.stat().st_size
+            ext = file_path.suffix
+            if size > 1_048_576 or rewriter.is_binary(file_path):
+                return self._json({"content": "", "transformed": False, "diff": "", "binary": True, "size": size, "ext": ext, "lines": 0})
+            try:
+                raw = file_path.read_bytes()
+                old_text = raw.decode("utf-8")
+                new_bytes, _ = rewriter.transform_bytes(file_path, raw, brand_map, scrub)
+                new_text = new_bytes.decode("utf-8")
+                transformed = old_text != new_text
+                diff_lines = list(difflib.unified_diff(old_text.splitlines(), new_text.splitlines(), fromfile=f"a/{file_rel}", tofile=f"b/{file_rel}", lineterm=""))
+                return self._json({"content": new_text, "transformed": transformed, "diff": "\n".join(diff_lines), "binary": False, "size": size, "ext": ext, "lines": new_text.count("\n")})
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if path == "/api/profiles":
+            return self._handle_list_profiles()
+
+        if path.startswith("/api/profiles/"):
+            profile_id = path.split("/api/profiles/")[-1]
+            return self._handle_get_profile(profile_id)
+
         return self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
 
     def do_POST(self):
@@ -233,6 +287,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/shutdown":
             return self._handle_shutdown()
 
+        if path == "/api/profiles":
+            return self._handle_save_profile(data)
+
+        return self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
+
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        global LAST_REQUEST_TIME
+        LAST_REQUEST_TIME = time.time()
+
+        if path.startswith("/api/profiles/"):
+            profile_id = path.split("/api/profiles/")[-1]
+            return self._handle_delete_profile(profile_id)
+
         return self.send_error(HTTPStatus.NOT_FOUND, "Unknown route")
 
     # ---- Endpoint implementations ---------------------------------------
@@ -248,6 +317,10 @@ class Handler(BaseHTTPRequestHandler):
             brand_map = data.get("brand_map") or []
             patterns = data.get("patterns") or []
             fix_imports = data.get("fix_imports") or {"python": False, "js": False}
+            normalize_line_endings = bool(data.get("normalize_line_endings", True))
+            generate_changelog = bool(data.get("generate_changelog", True))
+            template_vars = data.get("template_vars") or {}
+            workers = int(data.get("workers") or 4)
 
             if not source_path.exists() or not source_path.is_dir():
                 return self._json({"error": f"Invalid source_path: {source_path}"}, 400)
@@ -269,6 +342,10 @@ class Handler(BaseHTTPRequestHandler):
                 scrub_secrets=scrub_secrets,
                 brand_map=brand_map,
                 patterns=patterns,
+                normalize_line_endings=normalize_line_endings,
+                generate_changelog=generate_changelog,
+                template_vars=template_vars,
+                workers=workers,
             )
             plan["fix_imports"] = {"python": bool(fix_imports.get("python")), "js": bool(fix_imports.get("js"))}
             return self._json({"plan": plan})
@@ -374,6 +451,55 @@ class Handler(BaseHTTPRequestHandler):
             p = Path(out_path).expanduser().resolve()
             save_recipe(p, settings)
             return self._json({"ok": True, "path": str(p)})
+        except Exception as e:
+            return self._json({"error": str(e)}, 500)
+
+    def _profiles_dir(self) -> Path:
+        p = Path.home() / ".xchangevault" / "profiles"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _handle_list_profiles(self):
+        items = []
+        for f in sorted(self._profiles_dir().glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            items.append({
+                "id": f.stem,
+                "path": str(f),
+                "name": f.stem,
+                "modified": int(f.stat().st_mtime),
+            })
+        return self._json({"profiles": items})
+
+    def _handle_get_profile(self, profile_id: str):
+        f = self._profiles_dir() / f"{profile_id}.json"
+        if not f.exists():
+            return self._json({"error": "Profile not found"}, 404)
+        try:
+            return self._json({"profile": json.loads(f.read_text())})
+        except Exception as e:
+            return self._json({"error": str(e)}, 500)
+
+    def _handle_save_profile(self, data: Dict[str, Any]):
+        name = (data.get("name") or "").strip()
+        config = data.get("config") or {}
+        if not name:
+            return self._json({"error": "Missing name"}, 400)
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)[:80]
+        f = self._profiles_dir() / f"{safe_name}.json"
+        try:
+            payload = {"name": name, "config": config}
+            f.write_text(json.dumps(payload, indent=2))
+            return self._json({"id": safe_name, "path": str(f)})
+        except Exception as e:
+            return self._json({"error": str(e)}, 500)
+
+    def _handle_delete_profile(self, profile_id: str):
+        f = self._profiles_dir() / f"{profile_id}.json"
+        if not f.exists():
+            return self._json({"error": "Profile not found"}, 404)
+        try:
+            f.unlink()
+            return self._json({"ok": True})
         except Exception as e:
             return self._json({"error": str(e)}, 500)
 

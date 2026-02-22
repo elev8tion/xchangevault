@@ -1,7 +1,10 @@
 import os
+import re
 import json
 from pathlib import Path
 from datetime import datetime
+
+HISTORY_DIR = Path.home() / ".xchangevault" / "history"
 
 # ---- Config & Models -----------------------------------------------------
 
@@ -227,12 +230,61 @@ Context:
 PROJECT_HISTORIES: dict = {}
 
 
+def _sanitize_pid(pid: str) -> str:
+    sanitized = re.sub(r'[^a-zA-Z0-9\-_]', '_', pid)
+    return sanitized[:80]
+
+
+def save_history(pid: str, messages: list):
+    HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    key = _sanitize_pid(pid or 'default')
+    try:
+        (HISTORY_DIR / f"{key}.json").write_text(json.dumps(messages, indent=2))
+    except Exception:
+        pass
+
+
+def load_history(pid: str) -> list:
+    key = _sanitize_pid(pid or 'default')
+    try:
+        data = json.loads((HISTORY_DIR / f"{key}.json").read_text())
+        if isinstance(data, list):
+            return data
+    except Exception:
+        pass
+    return []
+
+
+def _unlink_history(pid: str):
+    if pid:
+        key = _sanitize_pid(pid)
+        try:
+            (HISTORY_DIR / f"{key}.json").unlink(missing_ok=True)
+        except Exception:
+            pass
+    else:
+        try:
+            for f in HISTORY_DIR.iterdir():
+                if f.suffix == '.json':
+                    f.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
 def get_history(pid: str) -> list:
-    return PROJECT_HISTORIES.setdefault(pid or 'default', [])
+    key = pid or 'default'
+    result = PROJECT_HISTORIES.setdefault(key, [])
+    if not result:
+        from_disk = load_history(pid)
+        if from_disk:
+            PROJECT_HISTORIES[key] = from_disk
+            return from_disk
+    return result
 
 
 def append_history(pid: str, role: str, content: str):
     get_history(pid).append({"role": role, "content": content})
+    save_history(pid or 'default', get_history(pid))
 
 
 def clear_history(pid: str = None):
@@ -240,4 +292,5 @@ def clear_history(pid: str = None):
         PROJECT_HISTORIES[pid] = []
     elif not pid:
         PROJECT_HISTORIES.clear()
+    _unlink_history(pid)
 

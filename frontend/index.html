@@ -36,6 +36,7 @@
       font-family: system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
       margin: 0; background: var(--bg); color: var(--text);
       font-size: 14px; line-height: 1.55;
+      display: flex; flex-direction: column; height: 100vh; overflow: hidden;
     }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -46,11 +47,11 @@
     header {
       padding: 14px 24px 10px;
       border-bottom: 1px solid var(--border);
-      position: sticky; top: 0;
       background: rgba(7,9,15,.92);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
       z-index: 100;
+      flex-shrink: 0;
     }
     .header-top { display: flex; align-items: center; justify-content: space-between; }
     .brand-wrap { display: flex; align-items: center; gap: 10px; }
@@ -93,8 +94,12 @@
     }
     .step-connector { flex: 1; max-width: 20px; height: 1px; background: var(--border); }
 
-    /* ── MAIN ───────────────────────────────────────────── */
-    main { max-width: 960px; margin: 0 auto; padding: 24px 20px; }
+    /* ── MAIN (3-panel) ─────────────────────────────────── */
+    #workspace { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+    .sidebar { width: 260px; min-width: 0; border-right: 1px solid var(--border); background: var(--surface); overflow: hidden; display: flex; flex-direction: column; transition: width 200ms ease; flex-shrink: 0; }
+    .sidebar.collapsed { width: 0; }
+    .right-panel { width: 340px; min-width: 0; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+    #main-panel { flex: 1; overflow-y: auto; padding: 24px 20px; max-width: none; margin: 0; }
 
     /* ── STATUS ─────────────────────────────────────────── */
     #status {
@@ -353,15 +358,7 @@
     }
     #ai-modal .list label:hover { background: var(--surface-3); }
 
-    /* ── ASSISTANT SIDEBAR ──────────────────────────────── */
-    #assistant {
-      width: 360px; border-left: 1px solid var(--border);
-      background: var(--surface);
-      position: fixed; right: 0; top: 0; bottom: 0;
-      z-index: 1000; box-shadow: -8px 0 32px rgba(0,0,0,.5);
-      flex-direction: column;
-    }
-    #assistant-messages { display: flex; flex-direction: column; gap: 8px; }
+    /* ── ASSISTANT MESSAGES ─────────────────────────────── */
     #assistant-messages > div {
       padding: 9px 13px; border-radius: var(--r);
       font-size: 13px; line-height: 1.5; max-width: 92%;
@@ -408,6 +405,30 @@
       .cols { grid-template-columns: 1fr; }
       .steps { display: none; }
     }
+
+    /* ── 3-PANEL LAYOUT (Phase 2B) ──────────────────────── */
+    .bottom-bar { height: 28px; background: var(--surface); border-top: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap: 8px; font-size: 11px; color: var(--text-2); flex-shrink: 0; }
+    .right-panel-tabs { display: flex; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .right-panel-tabs .tab-btn { flex: 1; padding: 8px; border: none; border-radius: 0; background: transparent; color: var(--text-2); font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; }
+    .right-panel-tabs .tab-btn.active { color: var(--primary-text); border-bottom-color: var(--primary); background: var(--primary-glow); }
+    .right-tab-content { flex: 1; overflow: auto; display: flex; flex-direction: column; }
+    .preview-code { margin: 0; padding: 12px; font-family: var(--mono); font-size: 11px; overflow: auto; flex: 1; white-space: pre-wrap; word-break: break-all; color: var(--text-2); }
+    .preview-meta { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-muted); }
+    .undo-redo-bar { display: flex; gap: 4px; margin: 6px 0; }
+    .undo-redo-bar button { flex: 1; padding: 3px 6px; font-size: 11px; background: var(--surface-2); border: 1px solid var(--border-hi); color: var(--text-2); border-radius: var(--r-sm); }
+    .dep-warnings { background: var(--surface-2); border: 1px solid var(--warning); border-radius: var(--r-sm); margin: 6px 0; padding: 8px; font-size: 11px; }
+    .dep-warnings div { color: var(--warning); font-size: 11px; margin-top: 4px; }
+    .cat-filter { padding: 3px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); font-size: 11px; cursor: pointer; transition: all var(--ease); }
+    .cat-filter.active { background: var(--primary-glow); border-color: var(--primary); color: var(--primary-text); }
+    .stack-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 600; background: var(--surface-3); border: 1px solid var(--border-hi); color: var(--primary-text); margin: 2px; }
+    #shortcuts-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 3000; }
+    .shortcuts-panel { background: var(--surface); border: 1px solid var(--border-hi); border-radius: var(--r-lg); padding: 20px; min-width: 340px; box-shadow: 0 24px 60px rgba(0,0,0,.7); }
+    .shortcut-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .shortcut-row:last-child { border-bottom: none; }
+    .shortcut-key { background: var(--surface-2); border: 1px solid var(--border-hi); border-radius: 4px; padding: 1px 7px; font-family: var(--mono); font-size: 11px; color: var(--primary-text); }
+    mark { background: rgba(59,130,246,.35); color: var(--text); border-radius: 2px; }
+    @media (max-width: 900px) { .right-panel { display: none !important; } }
+    @media (max-width: 640px) { .sidebar { display: none !important; } }
   </style>
 
   <!-- AI suggestions quick-accept modal -->
@@ -833,7 +854,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <button class="btn-sec" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
         <button class="btn-sec" onclick="toggleAssistant()">💬 Assistant</button>
+        <button class="btn-sec" onclick="toggleRightPanel()" title="Toggle right panel">⊞</button>
         <button class="btn-danger" onclick="shutdownServer()">⏻ Stop</button>
       </div>
     </div>
@@ -850,199 +873,297 @@
     </div>
   </header>
 
-  <main>
-    <div id="status"></div>
-
-    <!-- Step 1 -->
-    <div id="step1" class="step active card">
-      <h3>Pick a Source Folder</h3>
-      <div class="row" style="margin-bottom:8px">
-        <input id="source_path" type="text" placeholder="/absolute/path/to/source/project"
-          onfocus="refreshRecent('recent_sources','recent_sources_list','source_path')" />
-        <button onclick="scanPath()" style="flex:0 0 auto">Scan Project →</button>
+  <div id="workspace">
+    <!-- LEFT SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+      <!-- Step 1: welcome/empty panel -->
+      <div id="sidebar-step1" style="padding:16px;display:block">
+        <div class="help" style="color:var(--text-muted)">Scan a project to see the file tree here.</div>
       </div>
-      <div id="recent_sources_list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
-      <p class="help" style="margin:10px 0 0">Paste the full folder path. Your source is never modified — we only read from it.</p>
-    </div>
 
-    <!-- Step 2 -->
-    <div id="step2" class="step card">
-      <h3>Choose Files to Copy</h3>
-      <div class="search">
-        <input id="tree_search" type="text" placeholder="Search files (e.g., auth, .py, src/)" oninput="filterTree()" />
-        <button class="btn-sec" onclick="expandAll(true)">Expand</button>
-        <button class="btn-sec" onclick="expandAll(false)">Collapse</button>
-      </div>
-      <div id="common_groups" class="chips"></div>
-      <div class="tree" id="tree"></div>
-      <div class="footer">
-        <div><span class="badge">Selected</span>&ensp;<span id="selected_count" style="font-weight:700">0</span> files</div>
-        <div>
-          <button class="btn-sec" onclick="goto(1)">← Back</button>
-          <button onclick="goto(3)">Next: Customize →</button>
+      <!-- Steps 2-5: tree panel -->
+      <div id="sidebar-tree-panel" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+        <div id="sidebar-scan-info" style="padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0"></div>
+        <div style="padding:8px 10px;overflow-y:auto;flex:1;display:flex;flex-direction:column;min-height:0">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+            <input id="tree_search" type="text" placeholder="Search files…" oninput="filterTree()" style="flex:1;padding:5px 8px;font-size:12px" />
+            <span id="tree-search-count" style="font-size:11px;color:var(--text-muted);white-space:nowrap"></span>
+          </div>
+          <div id="undo-redo-bar" class="undo-redo-bar">
+            <button id="btn-undo" onclick="undoSelection()" disabled>↩ Undo</button>
+            <button id="btn-redo" onclick="redoSelection()" disabled>↪ Redo</button>
+          </div>
+          <div id="category-filters" class="chips" style="margin-bottom:6px"></div>
+          <div id="common_groups" class="chips"></div>
+          <div class="tree" id="tree" style="max-height:none;flex:1;overflow:auto"></div>
+          <div id="dep-warnings-panel" style="display:none" class="dep-warnings">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600;font-size:12px">⚠ Import warnings</span>
+              <button class="btn-ghost" onclick="hideDepsPanel()" style="padding:2px 6px;font-size:11px">✕</button>
+            </div>
+            <div id="dep-warnings-list"></div>
+          </div>
         </div>
       </div>
-    </div>
+    </aside>
 
-    <!-- Step 3 -->
-    <div id="step3" class="step">
-      <div class="cols" style="margin-bottom:14px">
-        <div class="card">
-          <h4>Project</h4>
-          <div class="field">
-            <label>New Project Name</label>
-            <input id="new_project_name" type="text" placeholder="NewProject" />
-          </div>
-          <div class="field">
-            <label>Destination Folder</label>
-            <input id="dest_path" type="text" placeholder="/absolute/path/to/output"
-              onfocus="refreshRecent('recent_dests','recent_dests_list','dest_path')" />
-          </div>
-          <div id="recent_dests_list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+    <!-- MAIN PANEL -->
+    <main id="main-panel">
+      <div id="status"></div>
+
+      <!-- Step 1 -->
+      <div id="step1" class="step active card">
+        <h3>Pick a Source Folder</h3>
+        <div class="row" style="margin-bottom:8px">
+          <input id="source_path" type="text" placeholder="/absolute/path/to/source/project"
+            onfocus="refreshRecent('recent_sources','recent_sources_list','source_path')" />
+          <button onclick="scanPath()" style="flex:0 0 auto">Scan Project →</button>
         </div>
+        <div id="recent_sources_list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+        <p class="help" style="margin:10px 0 0">Paste the full folder path. Your source is never modified — we only read from it.</p>
+      </div>
+
+      <!-- Step 2 (simplified — tree is in sidebar) -->
+      <div id="step2" class="step">
         <div class="card">
-          <h4>Replace Names</h4>
-          <p class="help" style="margin:0 0 10px">Swap old brand names for new ones across all text files.</p>
-          <div class="field">
-            <label>Old Brand</label>
-            <input id="old_brand" type="text" value="OldBrand" />
+          <h3>Choose Files to Copy</h3>
+          <p class="help">Select files from the tree on the left. Use search to filter, and the quick-select chips to toggle groups.</p>
+          <div class="footer">
+            <div><span class="badge">Selected</span>&ensp;<span id="selected_count" style="font-weight:700">0</span> files</div>
+            <div>
+              <button class="btn-sec" onclick="goto(1)">← Back</button>
+              <button onclick="goto(3)">Next: Customize →</button>
+            </div>
           </div>
-          <div class="field">
-            <label>New Brand</label>
-            <input id="new_brand" type="text" value="NewBrand" />
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div id="step3" class="step">
+        <!-- Profiles card -->
+        <div class="card" style="margin-bottom:14px">
+          <h4>Profiles</h4>
+          <div class="row" style="margin-bottom:8px">
+            <select id="profiles-dropdown"><option value="">-- Select profile --</option></select>
+            <button class="btn-sec" onclick="loadProfile()" style="flex:0 0 auto">Load</button>
+            <button class="btn-sec" onclick="saveProfile()" style="flex:0 0 auto">Save</button>
           </div>
-          <hr class="divider" />
-          <div id="brand_map"></div>
-          <button class="btn-sec" onclick="addBrandRow()" style="width:100%;margin-top:4px">+ Add mapping</button>
-          <label style="display:flex;gap:8px;align-items:center;margin-top:12px;cursor:pointer">
-            <input id="scrub_secrets" type="checkbox" checked /> Remove obvious secrets in text files
+        </div>
+
+        <div class="cols" style="margin-bottom:14px">
+          <div class="card">
+            <h4>Project</h4>
+            <div class="field">
+              <label>New Project Name</label>
+              <input id="new_project_name" type="text" placeholder="NewProject" />
+            </div>
+            <div class="field">
+              <label>Destination Folder</label>
+              <input id="dest_path" type="text" placeholder="/absolute/path/to/output"
+                onfocus="refreshRecent('recent_dests','recent_dests_list','dest_path')" />
+            </div>
+            <div id="recent_dests_list" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+          </div>
+          <div class="card">
+            <h4>Replace Names</h4>
+            <p class="help" style="margin:0 0 10px">Swap old brand names for new ones across all text files.</p>
+            <div class="field">
+              <label>Old Brand</label>
+              <input id="old_brand" type="text" value="OldBrand" />
+            </div>
+            <div class="field">
+              <label>New Brand</label>
+              <input id="new_brand" type="text" value="NewBrand" />
+            </div>
+            <hr class="divider" />
+            <div id="brand_map"></div>
+            <button class="btn-sec" onclick="addBrandRow()" style="width:100%;margin-top:4px">+ Add mapping</button>
+            <label style="display:flex;gap:8px;align-items:center;margin-top:12px;cursor:pointer">
+              <input id="scrub_secrets" type="checkbox" checked /> Remove obvious secrets in text files
+            </label>
+          </div>
+        </div>
+
+        <!-- Template Variables -->
+        <details style="margin-bottom:14px">
+          <summary>Template Variables</summary>
+          <div style="padding:10px;background:var(--surface-2);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r-sm) var(--r-sm)">
+            <p class="help">Use {{VAR_NAME}} in your files. Auto-vars: PROJECT_NAME, DATE, YEAR, SOURCE_PROJECT</p>
+            <div id="template-vars-rows"></div>
+            <button class="btn-sec" onclick="addTemplateVarRow('','')">+ Add variable</button>
+          </div>
+        </details>
+
+        <div class="card" style="margin-bottom:14px">
+          <h4>Structural Patterns</h4>
+          <div class="help" id="tools_info" style="margin-bottom:10px">Detecting tools…</div>
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
+            <input id="enable_patterns" type="checkbox" /> Enable Comby / ast-grep rewrite patterns
+          </label>
+          <div id="patterns"></div>
+          <button class="btn-sec" onclick="addPattern()" style="margin-top:4px">+ Add pattern</button>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <h4>Import Fixers</h4>
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
+            <input id="fix_py" type="checkbox" /> Auto-fix Python imports (LibCST or regex fallback)
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
+            <input id="fix_js" type="checkbox" /> Auto-fix JS/TS imports (jscodeshift or regex fallback)
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
+            <input id="normalize_line_endings" type="checkbox" checked /> Normalize line endings (CRLF → LF)
+          </label>
+          <label style="display:flex;gap:8px;align-items:center;cursor:pointer">
+            <input id="generate_changelog" type="checkbox" checked /> Generate CHANGELOG.md in output
           </label>
         </div>
-      </div>
 
-      <div class="card" style="margin-bottom:14px">
-        <h4>Structural Patterns</h4>
-        <div class="help" id="tools_info" style="margin-bottom:10px">Detecting tools…</div>
-        <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
-          <input id="enable_patterns" type="checkbox" /> Enable Comby / ast-grep rewrite patterns
-        </label>
-        <div id="patterns"></div>
-        <button class="btn-sec" onclick="addPattern()" style="margin-top:4px">+ Add pattern</button>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <h4>Import Fixers</h4>
-        <label style="display:flex;gap:8px;align-items:center;cursor:pointer;margin-bottom:8px">
-          <input id="fix_py" type="checkbox" /> Auto-fix Python imports (LibCST or regex fallback)
-        </label>
-        <label style="display:flex;gap:8px;align-items:center;cursor:pointer">
-          <input id="fix_js" type="checkbox" /> Auto-fix JS/TS imports (jscodeshift or regex fallback)
-        </label>
-      </div>
-
-      <div class="footer">
-        <div>
-          <button class="btn-sec" onclick="loadRecipe()">Load Recipe</button>
-          <button class="btn-sec" onclick="saveRecipe()">Save Recipe</button>
+        <div class="footer">
+          <div>
+            <button class="btn-sec" onclick="loadRecipe()">Load Recipe</button>
+            <button class="btn-sec" onclick="saveRecipe()">Save Recipe</button>
+          </div>
+          <div>
+            <button class="btn-sec" onclick="goto(2)">← Back</button>
+            <button class="btn-sec" onclick="aiSuggest()">✨ AI Suggestions</button>
+            <button onclick="makePlan()">Next: Review →</button>
+          </div>
         </div>
-        <div>
-          <button class="btn-sec" onclick="goto(2)">← Back</button>
-          <button class="btn-sec" onclick="aiSuggest()">✨ AI Suggestions</button>
-          <button onclick="makePlan()">Next: Review →</button>
+      </div>
+
+      <!-- Step 4 -->
+      <div id="step4" class="step">
+        <div class="card" style="margin-bottom:14px">
+          <h4>Plan Summary</h4>
+          <div id="plan_summary"></div>
         </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <h4>Pre-generation Checks</h4>
+          <div id="residuals"></div>
+          <div id="residuals_detail"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <h4>Diff Preview <span class="help">(first 100 changed files)</span></h4>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button class="btn-sec" onclick="toggleAllDiffs(true)">Expand all</button>
+            <button class="btn-sec" onclick="toggleAllDiffs(false)">Collapse all</button>
+          </div>
+          <div id="diffs"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <h4>Planned Actions <span class="help">(first 200)</span></h4>
+          <div class="log" id="plan_log"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <h4>Warnings</h4>
+          <div id="plan_warnings"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+          <h4>Live Generation Log</h4>
+          <pre class="log" id="stream_log" style="min-height:60px"></pre>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button onclick="applyPlanStream()">⚡ Generate with live log</button>
+            <button class="btn-sec" onclick="cancelApplyStream()">Cancel</button>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div>
+            <button class="btn-sec" onclick="listPlans()">List saved plans</button>
+            <span id="plans_list"></span>
+          </div>
+          <div>
+            <button class="btn-sec" onclick="goto(3)">← Back</button>
+            <button class="btn-sec" onclick="saveCurrentPlan()">Save Plan</button>
+            <button class="btn-sec" onclick="aiAnalyze()">✨ AI Analysis</button>
+            <button onclick="applyPlan()">🚀 Generate Now</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div id="step5" class="step card">
+        <div id="apply_result"></div>
+        <div class="card" style="margin-top:14px;margin-bottom:0">
+          <h4>Full Log</h4>
+          <div class="log" id="apply_log"></div>
+        </div>
+        <div class="footer">
+          <div></div>
+          <div>
+            <button onclick="goto(1)">↩ Start Over</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside id="right-panel" class="right-panel" style="display:none">
+      <div class="right-panel-tabs">
+        <button class="tab-btn active" onclick="switchRightTab('preview')">Preview</button>
+        <button class="tab-btn" onclick="switchRightTab('assistant')">Assistant</button>
+        <button class="tab-btn" onclick="switchRightTab('details')">Details</button>
+      </div>
+
+      <!-- Preview tab -->
+      <div id="right-tab-preview" class="right-tab-content">
+        <div class="preview-meta" id="preview-meta"></div>
+        <div style="display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border)">
+          <button class="btn-sec" style="font-size:11px;padding:3px 8px" onclick="setPreviewMode('raw')">Raw</button>
+          <button class="btn-sec" style="font-size:11px;padding:3px 8px" onclick="setPreviewMode('transformed')">Transformed</button>
+          <button class="btn-sec" style="font-size:11px;padding:3px 8px" onclick="setPreviewMode('diff')">Diff</button>
+        </div>
+        <pre id="preview-content" class="preview-code"></pre>
+      </div>
+
+      <!-- Assistant tab -->
+      <div id="right-tab-assistant" class="right-tab-content" style="display:none;flex-direction:column;height:100%">
+        <div id="assistant-key-wrap" style="padding:14px;border-bottom:1px solid var(--border);display:none">
+          <div class="help" style="margin-bottom:8px">Enter your DeepSeek API key to enable AI.</div>
+          <div class="row"><input id="assistant-key" type="password" placeholder="sk-..." /><button onclick="saveAssistantKey()" style="flex:0 0 auto">Save</button></div>
+        </div>
+        <div id="assistant-messages" style="flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px"></div>
+        <div style="padding:12px;border-top:1px solid var(--border)">
+          <div class="row">
+            <textarea id="assistant-input" rows="2" placeholder="Ask something about this plan…"></textarea>
+            <button onclick="assistantSend()" style="flex:0 0 auto;align-self:flex-end">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details tab -->
+      <div id="right-tab-details" class="right-tab-content" style="display:none">
+        <div id="details-content" style="padding:12px;font-size:12px;overflow:auto"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottom-bar" class="bottom-bar">
+    <span id="bottom-status"></span>
+    <div style="flex:1;margin:0 12px">
+      <div id="progress-bar-wrap" style="display:none;height:6px;background:var(--surface-3);border-radius:3px">
+        <div id="progress-bar" style="height:100%;width:0%;background:var(--primary);border-radius:3px;transition:width 0.3s"></div>
       </div>
     </div>
+    <span id="bottom-file-count" style="font-size:11px;color:var(--text-muted)"></span>
+  </div>
 
-    <!-- Step 4 -->
-    <div id="step4" class="step">
-      <div class="card" style="margin-bottom:14px">
-        <h4>Plan Summary</h4>
-        <div id="plan_summary"></div>
+  <!-- SHORTCUTS OVERLAY -->
+  <div id="shortcuts-overlay" style="display:none">
+    <div class="shortcuts-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <strong>Keyboard Shortcuts</strong>
+        <button class="btn-ghost" onclick="hideShortcuts()">✕</button>
       </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <h4>Pre-generation Checks</h4>
-        <div id="residuals"></div>
-        <div id="residuals_detail"></div>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <h4>Diff Preview <span class="help">(first 100 changed files)</span></h4>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button class="btn-sec" onclick="toggleAllDiffs(true)">Expand all</button>
-          <button class="btn-sec" onclick="toggleAllDiffs(false)">Collapse all</button>
-        </div>
-        <div id="diffs"></div>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <h4>Planned Actions <span class="help">(first 200)</span></h4>
-        <div class="log" id="plan_log"></div>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <h4>Warnings</h4>
-        <div id="plan_warnings"></div>
-      </div>
-
-      <div class="card" style="margin-bottom:14px">
-        <h4>Live Generation Log</h4>
-        <pre class="log" id="stream_log" style="min-height:60px"></pre>
-        <div style="display:flex;gap:8px;margin-top:10px">
-          <button onclick="applyPlanStream()">⚡ Generate with live log</button>
-          <button class="btn-sec" onclick="cancelApplyStream()">Cancel</button>
-        </div>
-      </div>
-
-      <div class="footer">
-        <div>
-          <button class="btn-sec" onclick="listPlans()">List saved plans</button>
-          <span id="plans_list"></span>
-        </div>
-        <div>
-          <button class="btn-sec" onclick="goto(3)">← Back</button>
-          <button class="btn-sec" onclick="saveCurrentPlan()">Save Plan</button>
-          <button class="btn-sec" onclick="aiAnalyze()">✨ AI Analysis</button>
-          <button onclick="applyPlan()">🚀 Generate Now</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Step 5 -->
-    <div id="step5" class="step card">
-      <div id="apply_result"></div>
-      <div class="card" style="margin-top:14px;margin-bottom:0">
-        <h4>Full Log</h4>
-        <div class="log" id="apply_log"></div>
-      </div>
-      <div class="footer">
-        <div></div>
-        <div>
-          <button onclick="goto(1)">↩ Start Over</button>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- Assistant sidebar -->
-  <div id="assistant" style="display:none">
-    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <div style="font-weight:700;font-size:14px">💬 Assistant</div>
-      <button class="btn-ghost" onclick="toggleAssistant()">✕</button>
-    </div>
-    <div id="assistant-key-wrap" style="padding:14px;border-bottom:1px solid var(--border);display:none">
-      <div class="help" style="margin-bottom:8px">Enter your DeepSeek API key to enable AI.</div>
-      <div class="row">
-        <input id="assistant-key" type="password" placeholder="sk-..." />
-        <button onclick="saveAssistantKey()" style="flex:0 0 auto">Save</button>
-      </div>
-    </div>
-    <div id="assistant-messages" style="flex:1;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:8px"></div>
-    <div style="padding:12px;border-top:1px solid var(--border)">
-      <div class="row">
-        <textarea id="assistant-input" rows="2" placeholder="Ask something about this plan…"></textarea>
-        <button onclick="assistantSend()" style="flex:0 0 auto;align-self:flex-end">Send</button>
-      </div>
+      <div id="shortcuts-content"></div>
     </div>
   </div>
 
@@ -1053,11 +1174,346 @@
     refreshRecent('recent_dests','recent_dests_list','dest_path');
     const _origMakePlan = makePlan; makePlan = async function(){ const d = $("dest_path").value.trim(); if(d) rememberPath('recent_dests', d); return _origMakePlan(); };
 
-    function toggleAssistant(){
-      const el = document.getElementById('assistant'); if (!el) return;
-      el.style.display = (el.style.display==='flex')? 'none' : 'flex';
-      if (el.style.display==='flex') initAssistant();
+    // ---- Globals (Phase 2C) ----
+    let selectionHistory = [], selectionHistoryIdx = -1;
+    const SELECTION_HISTORY_MAX = 20;
+    let _depDebounceTimer = null;
+    let _previewMode = 'raw', _previewData = null, _previewFile = null;
+    let _activeCategoryFilters = new Set();
+    const SHORTCUTS = [
+      ['?', 'Show shortcuts'],
+      ['Esc', 'Close overlays'],
+      ['/', 'Focus search'],
+      ['Cmd+A', 'Select all files'],
+      ['Cmd+Z', 'Undo selection'],
+      ['Cmd+Shift+Z', 'Redo selection'],
+      ['Cmd+Enter', 'Next step'],
+      ['1-5', 'Go to step N'],
+    ];
+
+    // ---- Layout ----
+    function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('collapsed'); }
+    function toggleRightPanel(){
+      const rp = document.getElementById('right-panel');
+      rp.style.display = rp.style.display === 'none' ? 'flex' : 'none';
     }
+    function switchRightTab(name){
+      for(const t of document.querySelectorAll('.right-tab-content')) t.style.display='none';
+      document.getElementById('right-tab-'+name).style.display = name==='assistant'?'flex':'block';
+      for(const b of document.querySelectorAll('.right-panel-tabs .tab-btn')) b.classList.remove('active');
+      const btn = document.querySelector(`.right-panel-tabs .tab-btn[onclick="switchRightTab('${name}')"]`);
+      if(btn) btn.classList.add('active');
+    }
+    function updateBottomBar(){
+      const el = document.getElementById('bottom-file-count');
+      if(el) el.textContent = `${selectedPaths.size} files selected`;
+    }
+    function setBottomStatus(msg){ const el=document.getElementById('bottom-status'); if(el) el.textContent=msg; }
+    function setProgressBar(pct){
+      const wrap=document.getElementById('progress-bar-wrap');
+      const bar=document.getElementById('progress-bar');
+      if(!wrap||!bar) return;
+      if(pct<=0){ wrap.style.display='none'; bar.style.width='0%'; return; }
+      wrap.style.display='block'; bar.style.width=Math.min(100,pct)+'%';
+      if(pct>=100) setTimeout(()=>{ wrap.style.display='none'; }, 1200);
+    }
+
+    // ---- Undo/Redo ----
+    function _snapshotSelection(){
+      const snap = new Set(selectedPaths);
+      if(selectionHistoryIdx < selectionHistory.length-1) selectionHistory = selectionHistory.slice(0, selectionHistoryIdx+1);
+      selectionHistory.push(snap);
+      if(selectionHistory.length > SELECTION_HISTORY_MAX) selectionHistory.shift();
+      selectionHistoryIdx = selectionHistory.length-1;
+      _updateUndoRedoButtons();
+    }
+    function _applySelectionSnapshot(snap){
+      selectedPaths = new Set(snap);
+      for(const cb of document.querySelectorAll('#tree input[type=checkbox][data-type=file]')){
+        cb.checked = selectedPaths.has(cb.getAttribute('data-path'));
+      }
+      for(const cb of document.querySelectorAll('#tree input[type=checkbox][data-type=dir]')){
+        const li=cb.closest('li');
+        const files=Array.from(li.querySelectorAll('input[data-type=file]'));
+        const checked=files.filter(c=>c.checked).length;
+        cb.checked=checked===files.length; cb.indeterminate=checked>0&&checked<files.length;
+      }
+      const el=document.getElementById('selected_count'); if(el) el.textContent=selectedPaths.size;
+      updateBottomBar();
+    }
+    function undoSelection(){ if(selectionHistoryIdx>0){ selectionHistoryIdx--; _applySelectionSnapshot(selectionHistory[selectionHistoryIdx]); _updateUndoRedoButtons(); } }
+    function redoSelection(){ if(selectionHistoryIdx<selectionHistory.length-1){ selectionHistoryIdx++; _applySelectionSnapshot(selectionHistory[selectionHistoryIdx]); _updateUndoRedoButtons(); } }
+    function _updateUndoRedoButtons(){
+      const u=document.getElementById('btn-undo'); const r=document.getElementById('btn-redo');
+      if(u) u.disabled=selectionHistoryIdx<=0;
+      if(r) r.disabled=selectionHistoryIdx>=selectionHistory.length-1;
+    }
+
+    // ---- Fuzzy Search (replaces filterTree) ----
+    function fuzzyScore(query, target){
+      if(!query) return 1;
+      query=query.toLowerCase(); target=target.toLowerCase();
+      let qi=0, score=0, last=-1;
+      for(let i=0;i<target.length&&qi<query.length;i++){
+        if(target[i]===query[qi]){ score+=(i===last+1)?2:1; last=i; qi++; }
+      }
+      return qi===query.length?score:0;
+    }
+    function fuzzyHighlight(query, text){
+      if(!query) return escapeHtml(text);
+      const q=query.toLowerCase(); let t=text; let out=''; let qi=0;
+      for(let i=0;i<t.length;i++){
+        if(qi<q.length&&t[i].toLowerCase()===q[qi]){ out+=`<mark>${escapeHtml(t[i])}</mark>`; qi++; }
+        else out+=escapeHtml(t[i]);
+      }
+      return out;
+    }
+    // Override filterTree with fuzzy version
+    filterTree = function(){
+      const q=document.getElementById('tree_search').value.trim();
+      let matchCount=0;
+      const allItems=document.querySelectorAll('#tree li');
+      if(!q){
+        for(const li of allItems) li.style.display='';
+        const cnt=document.getElementById('tree-search-count'); if(cnt) cnt.textContent='';
+        _applyCategoryFilter();
+        return;
+      }
+      const visibleLis=new Set();
+      for(const li of allItems){
+        const nameSpan=li.querySelector('.tree-filename');
+        const cb=li.querySelector('input[type=checkbox]');
+        if(!cb||cb.getAttribute('data-type')!=='file') continue;
+        const name=cb.getAttribute('data-path')||'';
+        const score=fuzzyScore(q,name);
+        if(score>0){ visibleLis.add(li); matchCount++; if(nameSpan) nameSpan.innerHTML=fuzzyHighlight(q,nameSpan.textContent||''); }
+        else { if(nameSpan) nameSpan.textContent=nameSpan.textContent||''; }
+      }
+      for(const li of allItems){
+        const cb=li.querySelector('input[type=checkbox]');
+        if(!cb) continue;
+        if(cb.getAttribute('data-type')==='file') li.style.display=visibleLis.has(li)?'':'none';
+        else {
+          const hasVisible=Array.from(li.querySelectorAll('li')).some(c=>visibleLis.has(c));
+          li.style.display=hasVisible?'':'none';
+        }
+      }
+      const cnt=document.getElementById('tree-search-count'); if(cnt) cnt.textContent=`${matchCount} match${matchCount!==1?'es':''}`;
+    };
+
+    // ---- Shortcuts ----
+    function showShortcuts(){
+      const c=document.getElementById('shortcuts-content');
+      if(c) c.innerHTML=SHORTCUTS.map(([k,d])=>`<div class="shortcut-row"><span>${escapeHtml(d)}</span><span class="shortcut-key">${escapeHtml(k)}</span></div>`).join('');
+      const o=document.getElementById('shortcuts-overlay'); if(o) o.style.display='flex';
+    }
+    function hideShortcuts(){ const o=document.getElementById('shortcuts-overlay'); if(o) o.style.display='none'; }
+    document.addEventListener('keydown', (e)=>{
+      if(e.key==='?' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){ showShortcuts(); return; }
+      if(e.key==='Escape'){ hideShortcuts(); hideAIModal(); return; }
+      if(e.key==='/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){ e.preventDefault(); const s=document.getElementById('tree_search'); if(s) s.focus(); return; }
+      if((e.metaKey||e.ctrlKey) && e.key==='a' && !e.shiftKey){ if(currentStep===2){ e.preventDefault(); selectAll(true); } return; }
+      if((e.metaKey||e.ctrlKey) && e.key==='z' && !e.shiftKey){ e.preventDefault(); undoSelection(); return; }
+      if((e.metaKey||e.ctrlKey) && e.key==='Z' || ((e.metaKey||e.ctrlKey) && e.shiftKey && e.key==='z')){ e.preventDefault(); redoSelection(); return; }
+      if((e.metaKey||e.ctrlKey) && e.key==='Enter'){ e.preventDefault(); if(currentStep<5){ goto(currentStep+1); } return; }
+      if(!e.metaKey&&!e.ctrlKey&&!e.altKey&&e.key>='1'&&e.key<='5'&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'){ goto(parseInt(e.key)); return; }
+    });
+
+    // ---- File Preview ----
+    async function previewFile(relPath){
+      if(!scanResult) return;
+      _previewFile=relPath;
+      const brandMap=getBrandMap();
+      const scrub=document.getElementById('scrub_secrets')?.checked?1:0;
+      const source=scanResult.root;
+      const url=`/api/file?source=${encodeURIComponent(source)}&file=${encodeURIComponent(relPath)}&brand_map=${encodeURIComponent(JSON.stringify(brandMap))}&scrub=${scrub}`;
+      try{
+        const r=await fetch(url); const d=await r.json();
+        if(!r.ok){ return; }
+        _previewData=d;
+        const meta=document.getElementById('preview-meta');
+        if(meta) meta.textContent=`${relPath} · ${d.ext||''} · ${d.lines||0} lines · ${(d.size/1024).toFixed(1)}KB`;
+        renderPreviewContent();
+        const rp=document.getElementById('right-panel');
+        if(rp&&rp.style.display==='none') rp.style.display='flex';
+        switchRightTab('preview');
+      }catch(e){}
+    }
+    function setPreviewMode(mode){ _previewMode=mode; renderPreviewContent(); }
+    function renderPreviewContent(){
+      const el=document.getElementById('preview-content'); if(!el||!_previewData) return;
+      if(_previewData.binary){ el.textContent='[Binary file]'; return; }
+      if(_previewMode==='raw') el.textContent=_previewData.content||'';
+      else if(_previewMode==='transformed') el.textContent=_previewData.content||'';
+      else if(_previewMode==='diff'){
+        if(!_previewData.diff){ el.textContent='No changes'; return; }
+        el.innerHTML=_previewData.diff.split('\n').map(line=>{
+          if(line.startsWith('+')){return `<span style="color:var(--success)">${escapeHtml(line)}</span>`;}
+          if(line.startsWith('-')){return `<span style="color:var(--danger)">${escapeHtml(line)}</span>`;}
+          if(line.startsWith('@@')){return `<span style="color:var(--primary-text)">${escapeHtml(line)}</span>`;}
+          return escapeHtml(line);
+        }).join('\n');
+      }
+    }
+
+    // ---- Dep Warnings ----
+    async function fetchDepsWarnings(){
+      if(!scanResult||!selectedPaths.size) return;
+      try{
+        const paths=Array.from(selectedPaths).join(',');
+        const r=await fetch(`/api/deps?source=${encodeURIComponent(scanResult.root)}&paths=${encodeURIComponent(paths)}`);
+        const d=await r.json(); if(!r.ok) return;
+        renderDepsWarnings(d.warnings||{});
+      }catch(e){}
+    }
+    function renderDepsWarnings(warnings){
+      const panel=document.getElementById('dep-warnings-panel');
+      const list=document.getElementById('dep-warnings-list');
+      if(!panel||!list) return;
+      const entries=Object.entries(warnings);
+      if(!entries.length){ panel.style.display='none'; return; }
+      panel.style.display='block';
+      list.innerHTML=entries.slice(0,20).flatMap(([f,ws])=>ws.map(w=>`<div>⚠ ${escapeHtml(w)}</div>`)).join('');
+    }
+    function hideDepsPanel(){ const p=document.getElementById('dep-warnings-panel'); if(p) p.style.display='none'; }
+    function _scheduleDepsCheck(){ clearTimeout(_depDebounceTimer); _depDebounceTimer=setTimeout(fetchDepsWarnings,600); }
+
+    // ---- Category Filters ----
+    function renderCategoryFilters(){
+      if(!scanResult) return;
+      const counts={};
+      const allFiles=document.querySelectorAll('#tree input[data-type=file]');
+      for(const cb of allFiles){
+        const path=cb.getAttribute('data-path')||'';
+        const cat=_findFileCategory(path)||'source';
+        counts[cat]=(counts[cat]||0)+1;
+      }
+      const cont=document.getElementById('category-filters'); if(!cont) return;
+      const cats=Object.keys(counts).sort();
+      const icons={source:'📝',test:'🧪',doc:'📖',config:'⚙️',asset:'🖼',build:'🏗'};
+      cont.innerHTML=cats.map(c=>`<button class="cat-filter${_activeCategoryFilters.has(c)?' active':''}" onclick="toggleCategoryFilter('${c}')">${icons[c]||'📄'} ${c} (${counts[c]})</button>`).join('');
+    }
+    function toggleCategoryFilter(cat){
+      if(_activeCategoryFilters.has(cat)) _activeCategoryFilters.delete(cat);
+      else _activeCategoryFilters.add(cat);
+      renderCategoryFilters();
+      _applyCategoryFilter();
+    }
+    function _applyCategoryFilter(){
+      if(!_activeCategoryFilters.size) return;
+      for(const li of document.querySelectorAll('#tree li')){
+        const cb=li.querySelector('input[type=checkbox]');
+        if(!cb||cb.getAttribute('data-type')!=='file') continue;
+        const path=cb.getAttribute('data-path')||'';
+        const cat=_findFileCategory(path)||'source';
+        li.style.display=_activeCategoryFilters.has(cat)?'':'none';
+      }
+    }
+    function _findFileCategory(relPath){
+      function search(node){
+        if(node.type==='file'&&node.path===relPath) return node.category;
+        for(const c of (node.children||[])){ const r=search(c); if(r) return r; }
+        return null;
+      }
+      return scanResult&&scanResult.tree?search(scanResult.tree):null;
+    }
+
+    // ---- Profiles ----
+    async function refreshProfiles(){
+      try{
+        const r=await fetch('/api/profiles'); const d=await r.json(); if(!r.ok) return;
+        const sel=document.getElementById('profiles-dropdown'); if(!sel) return;
+        sel.innerHTML='<option value="">-- Select profile --</option>'+(d.profiles||[]).map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+      }catch(e){}
+    }
+    async function loadProfile(){
+      const sel=document.getElementById('profiles-dropdown'); if(!sel||!sel.value) return;
+      try{
+        const r=await fetch('/api/profiles/'+encodeURIComponent(sel.value)); const d=await r.json(); if(!r.ok) return;
+        const cfg=(d.profile||{}).config||{};
+        if(cfg.old_brand!=null){ const el=document.getElementById('old_brand'); if(el) el.value=cfg.old_brand; }
+        if(cfg.new_brand!=null){ const el=document.getElementById('new_brand'); if(el) el.value=cfg.new_brand; }
+        if(cfg.brand_map){ const c=document.getElementById('brand_map'); if(c){ c.innerHTML=''; for(const m of cfg.brand_map) addBrandRow(m.from||'',m.to||''); } }
+        if(cfg.scrub_secrets!=null){ const el=document.getElementById('scrub_secrets'); if(el) el.checked=cfg.scrub_secrets; }
+        if(cfg.patterns){ const c=document.getElementById('patterns'); if(c){ c.innerHTML=''; for(const p of cfg.patterns) addPattern(p.tool||'comby',p.matcher||'.',p.match||'',p.rewrite||''); } }
+        if(cfg.fix_imports){ const py=document.getElementById('fix_py'); const js=document.getElementById('fix_js'); if(py) py.checked=cfg.fix_imports.python||false; if(js) js.checked=cfg.fix_imports.js||false; }
+        setStatus('Profile loaded');
+      }catch(e){}
+    }
+    async function saveProfile(){
+      const name=prompt('Profile name'); if(!name) return;
+      const config={
+        old_brand:document.getElementById('old_brand')?.value||'',
+        new_brand:document.getElementById('new_brand')?.value||'',
+        brand_map:getBrandMap(),
+        scrub_secrets:document.getElementById('scrub_secrets')?.checked||false,
+        patterns:getPatterns(),
+        fix_imports:{python:document.getElementById('fix_py')?.checked||false,js:document.getElementById('fix_js')?.checked||false}
+      };
+      try{
+        const r=await fetch('/api/profiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,config})});
+        const d=await r.json(); if(!r.ok){alert(d.error||'Save failed');return;}
+        await refreshProfiles(); setStatus('Profile saved');
+      }catch(e){}
+    }
+
+    // ---- Template Vars ----
+    function addTemplateVarRow(key='',val=''){
+      const c=document.getElementById('template-vars-rows'); if(!c) return;
+      const div=document.createElement('div');
+      div.className='row'; div.style.marginBottom='6px';
+      div.innerHTML=`<input class="tpl-key" type="text" placeholder="VAR_NAME" value="${escapeHtml(key)}" style="flex:1"><span style="color:var(--text-muted);flex:0;padding:0 6px">=</span><input class="tpl-val" type="text" placeholder="value" value="${escapeHtml(val)}" style="flex:2"><button class="btn-ghost" onclick="this.parentElement.remove()" style="flex:0;padding:4px 8px">✕</button>`;
+      c.appendChild(div);
+    }
+    function getTemplateVars(){
+      const out={};
+      for(const row of document.querySelectorAll('#template-vars-rows .row')){
+        const k=row.querySelector('.tpl-key')?.value.trim();
+        const v=row.querySelector('.tpl-val')?.value||'';
+        if(k) out[k]=v;
+      }
+      return out;
+    }
+
+    // ---- Details Tab ----
+    function _renderDetailsTab(plan){
+      const el=document.getElementById('details-content'); if(!el||!plan) return;
+      const res=plan.previews?.residuals||{};
+      const eh=res.entropy_hits||[];
+      const th=res.template_hits||{};
+      let html='';
+      if(eh.length) html+=`<div style="margin-bottom:8px"><strong style="color:var(--warning)">🔐 Entropy secrets (${eh.length})</strong><div style="margin-top:4px">${eh.slice(0,20).map(f=>`<div class="muted">${escapeHtml(f)}</div>`).join('')}</div></div>`;
+      const thKeys=Object.keys(th);
+      if(thKeys.length) html+=`<div style="margin-bottom:8px"><strong style="color:var(--primary-text)">{{}} Template vars (${thKeys.length} files)</strong><div style="margin-top:4px">${thKeys.slice(0,20).map(f=>`<div class="muted">${escapeHtml(f)}: ${(th[f]||[]).map(v=>`{{${v}}}`).join(', ')}</div>`).join('')}</div></div>`;
+      if(!html) html='<div class="muted">No entropy or template warnings.</div>';
+      el.innerHTML=html;
+    }
+
+    // ---- Modified: goto ----
+    const _origGoto=goto;
+    goto=function(step){
+      _origGoto(step);
+      const sp1=document.getElementById('sidebar-step1');
+      const stp=document.getElementById('sidebar-tree-panel');
+      if(sp1) sp1.style.display=step===1?'block':'none';
+      if(stp) stp.style.display=step>=2?'flex':'none';
+      updateBottomBar();
+      if(step===3) refreshProfiles();
+      if(step===4){ _renderDetailsTab(window.currentPlan); switchRightTab('details'); const rp=document.getElementById('right-panel'); if(rp) rp.style.display='flex'; }
+    };
+
+    // ---- toggleAssistant ----
+    function toggleAssistant(){
+      const rp=document.getElementById('right-panel');
+      if(!rp) return;
+      const isVisible=rp.style.display!=='none';
+      const isAssistant=document.getElementById('right-tab-assistant')?.style.display!=='none';
+      if(isVisible&&isAssistant){ rp.style.display='none'; return; }
+      rp.style.display='flex';
+      switchRightTab('assistant');
+      initAssistant();
+    }
+
     async function initAssistant(){
       try{
         const r = await fetch('/api/config'); if(!r.ok) return; const cfg = await r.json();
@@ -1080,6 +1536,125 @@
       const u = document.createElement('div'); u.textContent = 'You: ' + msg; box.appendChild(u);
       const a = document.createElement('div'); a.textContent = data.response; box.appendChild(a); box.scrollTop = box.scrollHeight;
     }
+
+    // ---- Modified: renderTree (extend with enhanced nodeToHTML + sidebar info) ----
+    (function(){
+      const catIcon={source:'📝',test:'🧪',doc:'📖',config:'⚙️',asset:'🖼',build:'🏗'};
+      const _base=renderTree;
+      renderTree=function(){
+        selectedPaths = new Set();
+        const container=document.getElementById('tree'); if(!container) return;
+        if(!scanResult) return;
+
+        function nodeToHTML(node){
+          if(node.type==='dir'){
+            const children=(node.children||[]).map(nodeToHTML).join('');
+            return `<li><label><input type="checkbox" checked data-path="${escapeHtml(node.path)}" data-type="dir" onchange="toggleNode(this)"> 📁 ${escapeHtml(node.name)}</label><ul>${children}</ul></li>`;
+          } else {
+            const icon=catIcon[node.category||'source']||'📄';
+            return `<li data-category="${node.category||'source'}"><label><input type="checkbox" checked data-path="${escapeHtml(node.path)}" data-type="file" onchange="toggleNode(this)"> <span class="tree-filename" onclick="previewFile('${escapeHtml(node.path)}')" style="cursor:pointer;flex:1">${icon} ${escapeHtml(node.name)}</span></label></li>`;
+          }
+        }
+
+        container.innerHTML=`<div class="tree-actions"><button onclick="selectAll(true)">Select all</button><button onclick="selectAll(false)">Select none</button><button onclick="invertSelection()">Invert</button></div><ul class="tree-root">${nodeToHTML(scanResult.tree)}</ul>`;
+
+        function collect(n){ if(n.type==='file') selectedPaths.add(n.path); for(const c of (n.children||[])) collect(c); }
+        collect(scanResult.tree);
+        const sc=document.getElementById('selected_count'); if(sc) sc.textContent=selectedPaths.size;
+        renderGroupChips();
+
+        // Populate sidebar scan info + stack badges
+        const info=document.getElementById('sidebar-scan-info');
+        if(info&&scanResult){
+          const stk=(scanResult.stack?.detected||[]).map(s=>`<span class="stack-badge">${escapeHtml(s)}</span>`).join('');
+          info.innerHTML=`<div style="font-size:11px;color:var(--text-muted)">${scanResult.stats?.files||0} files · ${scanResult.stats?.dirs||0} dirs</div><div style="margin-top:4px">${stk}</div>`;
+        }
+        renderCategoryFilters();
+        _snapshotSelection();
+        updateBottomBar();
+      };
+    })();
+
+    // ---- Modified: toggleNode (extend) ----
+    const _origToggleNode=toggleNode;
+    toggleNode=function(cb){
+      _origToggleNode(cb);
+      _snapshotSelection();
+      _scheduleDepsCheck();
+      updateBottomBar();
+    };
+
+    // ---- Modified: selectAll (extend) ----
+    const _origSelectAll=selectAll;
+    selectAll=function(flag){
+      _origSelectAll(flag);
+      _snapshotSelection();
+      _scheduleDepsCheck();
+      updateBottomBar();
+    };
+
+    // ---- Modified: invertSelection (extend) ----
+    const _origInvertSelection=invertSelection;
+    invertSelection=function(){
+      _origInvertSelection();
+      _snapshotSelection();
+      _scheduleDepsCheck();
+      updateBottomBar();
+    };
+
+    // ---- Modified: toggleGroup (extend) ----
+    const _origToggleGroup=toggleGroup;
+    toggleGroup=function(name){
+      _origToggleGroup(name);
+      _snapshotSelection();
+      _scheduleDepsCheck();
+      updateBottomBar();
+    };
+
+    // ---- Modified: makePlan (extend to add new fields) ----
+    const _origMakePlanBase=makePlan;
+    makePlan=async function(){
+      const origFetch=window.fetch;
+      const intercepted={done:false};
+      window.fetch=async function(url, opts){
+        if(!intercepted.done && url==='/api/plan' && opts?.method==='POST'){
+          intercepted.done=true;
+          let body=JSON.parse(opts.body||'{}');
+          body.normalize_line_endings=document.getElementById('normalize_line_endings')?.checked??true;
+          body.generate_changelog=document.getElementById('generate_changelog')?.checked??true;
+          body.template_vars=getTemplateVars();
+          body.workers=4;
+          opts=Object.assign({},opts,{body:JSON.stringify(body)});
+        }
+        window.fetch=origFetch;
+        return origFetch(url, opts);
+      };
+      return _origMakePlanBase();
+    };
+
+    // ---- Modified: renderPlan (extend) ----
+    const _origRenderPlan=renderPlan;
+    renderPlan=function(){
+      _origRenderPlan();
+      _renderDetailsTab(window.currentPlan);
+    };
+
+    // ---- Modified: applyPlanStream (extend for progress bar) ----
+    const _origApplyPlanStream=applyPlanStream;
+    applyPlanStream=async function(){
+      setProgressBar(0);
+      setBottomStatus('Generating...');
+      await _origApplyPlanStream();
+      const logEl=document.getElementById('stream_log');
+      if(logEl){
+        let lastCount=0;
+        const interval=setInterval(()=>{
+          const lines=logEl.textContent.split('\n').filter(Boolean).length;
+          if(lines>lastCount){ lastCount=lines; setProgressBar(Math.min(90,lines*2)); }
+        },200);
+        setTimeout(()=>{ clearInterval(interval); setProgressBar(100); setBottomStatus(''); }, 30000);
+      }
+    };
 
     async function ensurePlanForAI(){
       if(window.currentPlan) return window.currentPlan;
